@@ -1,0 +1,7 @@
+name = "QuantumCircuits"
+uuid = "01625e0c-f410-4aff-9d33-8c5e8b164a60"
+authors = ["Justin Dressel <dressel@chapman.edu>", "Luke Burns <luburns@chapman.edu>", "Sacha Greenfield <sgreenfield@chapman.edu>"]
+version = "0.1.0"
+
+[deps]
+QuantumOpticsBase = "4f57444f-1401-5e15-980d-4471b28d5678"
