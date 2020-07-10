@@ -5,7 +5,7 @@ using Statistics
 @testset "rouchon" begin
 
 # Test Params
-target_MSE = 0.001
+target_max = 0.1
 
 # Parameters
 n = 100 # ensemble size
@@ -55,7 +55,7 @@ sevsz = []
 for i in 1:n
   evs = hcat(evals[1,i,:]...)'
   
-  # Compute average expectation values
+  # Compute average stochastic expectation values
   if (i == 1)
     sevsx = evs[:,1]
     sevsy = evs[:,2]
@@ -71,15 +71,17 @@ sevsx /= n
 sevsy /= n
 sevsz /= n
 
+# Difference between deterministic and average stochastic expectation values
 diffx = devs[:,1]-sevsx
 diffy = devs[:,2]-sevsy
 diffz = devs[:,3]-sevsz
 
-MSEx = mean(diffx.^2)
-MSEy = mean(diffy.^2)
-MSEz = mean(diffz.^2)
+# Naive convergence test
+maxx = maximum(diffx)
+maxy = maximum(diffy)
+maxz = maximum(diffz)
 
-@test MSEx < target_MSE
-@test MSEy < target_MSE
-@test MSEz < target_MSE
+@test maxx < target_max
+@test maxy < target_max
+@test maxz < target_max
 end
