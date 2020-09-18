@@ -48,7 +48,7 @@ and small dt.  [Physical Review A **92**, 052306 (2015)]
   - (t, ρ(t)::Operator) -> (ρ(t+dt)::Operator, rlist::Float64...)
 
 """
-function meas(dt, H0, J0::Array, C0::Array)
+function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[])
     # Assemble readout generating functions and Kraus operators
     ros = Function[]
     gks = Function[]
@@ -58,7 +58,9 @@ function meas(dt, H0, J0::Array, C0::Array)
     C = map(c -> length(methods(c)) > 0 ? c : t -> c, C0)
 
     for c in C
-        push!(ros, readout(dt, c))
+        if length(rdo) == 0 
+            push!(ros, readout(dt, c)) 
+        end
         push!(gks, gausskraus(dt, c))
     end
 
@@ -66,10 +68,12 @@ function meas(dt, H0, J0::Array, C0::Array)
 
     # Increment that samples each readout, applies all Kraus operators
     # then applies Lindblad dephasing (including Hamiltonian evolution)
-    (t, ρ) -> let rs = map(ro -> ro(t, ρ), ros),
-                        gs = map(z -> z[2](t, z[1]), zip(rs,gks)),
-                        ρ1 = foldr(sand, gs; init=ρ);
-                    (L(t, ρ1/tr(ρ1)), rs) end
+    (t, ρ) -> begin
+        rs = length(rdo) > 0 ? map(ro -> ro[argmin(abs.(ts .- t))], rdo) : map(ro -> ro(t, ρ), ros)
+        gs = map(z -> z[2](t, z[1]), zip(rs,gks))
+        ρ1 = foldr(sand, gs; init=ρ);
+        return (L(t, ρ1/tr(ρ1)), rs) 
+    end
 end
 
 function readout(dt, m::Function)
@@ -85,24 +89,32 @@ function gausskraus(dt, m::Function)
                         exp(DenseOperator((r*v) * m(t) - v*mo2)) end
 end
 
-@inline function trajectory(inc::Function, tstep::Tuple, ρ; fn::Function=ρ->ρ, dt=1e-4)
-    ts = range(first(tstep), last(tstep), step=dt)
+@inline function trajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, dt=1e-4)
     
-    ρs = []
-    dy = []
+    # probe record size
+    _, rs1 = inc(ts[1], ρ)
 
-    for t in ts
+    # init
+    ρ0 = ρ
+    dy0 = [0.0 for i in rs1]
+    ρs = [ρ0]
+    dy = [dy0]
+
+    for t in ts[2:end]
         ρ, rs = inc(t, ρ)
         push!(ρs, fn(ρ))
         push!(dy, rs)
     end
 
+    dy = collect(eachrow(hcat(dy...)))
+
     return (ts, ρs, dy)
 end
 
-function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
-    return trajectory(meas(dt, H0, J0, C0), tstep, ρ; fn=fn, dt=dt)
-end
+function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, readout=[])
+    ts = range(first(tstep), last(tstep), step=dt)
+    return trajectory(meas(dt, H0, J0, C0; rdo=readout, ts=ts), ts, ρ; fn=fn, dt=dt)
+end 
 
 # Jump-nojump Lindblad propagator
 """
@@ -200,7 +212,7 @@ dy :: record; default dy=[], i.e. simulation generates record time series.
 fn : ρ → Any :: eval function (e.g. to return expectation values instead of density matrices)
 """
 
-function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
+function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, readout=[])
     T = range(T0[1], T0[2], step=dt)
     Id = identityoperator(ρ.basis_l)
     Nn = length(T)
@@ -287,7 +299,7 @@ N :: number of trajectories (default N=10)
 function ensemble(solve, T, ρ0, H, J, C; fn=ρ->ρ, dt=1e-4, record=[], N=10)
     data = pmap(m -> begin
         dy = length(record) >= m ? record[m] : []
-        tt, ρs, dy = solve(T, ρ0, H, J, C; fn=fn, dt=dt, dy=dy)
+        tt, ρs, dy = solve(T, ρ0, H, J, C; fn=fn, dt=dt, readout=dy)
         return (ρs, dy)
     end, 1:N)
 

@@ -16,7 +16,7 @@ addprocs(procs)
   Ω  = 2π # Rabi frequency
   τ = 3.0 # Measurement collapse timescale
   Γ = 1/(2τ) # Measurement dephasing rate
-  dt = 1e-4
+  dt = 1e-3
   T = (0.0, 6τ) # Time duration of simulation
   η = 0.3
 
@@ -45,38 +45,38 @@ addprocs(procs)
 end
 
 # Single Step Test
-@testset "rouchon_step" begin
+@testset "bayesian_step" begin
   Random.seed!(1)
 
-  atol = 1e-6
+  atol = 1e-5
 
   J0 = √Γ*σz
   C0 = √(Γ*η)*σz
   H0 = Ω*σy/2
-  tt, ρt = @time rouchon((0, dt), ρ0, H0, [J0], [C0]; dt=dt)
-  Δρ = ρt[1] - ρ0;
+  tt, ρt = @time bayesian((0, dt), ρ0, H0, [J0], [C0]; dt=dt)
 
   # compute first step by hand
-  dist = Normal(0, sqrt(dt))
-  dW = rand(dist,1)[1]
-  Δρ_expected = -im*(H0*ρ0 - ρ0*H0)*dt + (J0*ρ0*J0' - 0.5(J0'*J0*ρ0 + ρ0*J0'*J0))*dt + (C0*ρ0 + ρ0*C0' - tr(C0*ρ0 + ρ0*C0')*ρ0)*dW
+  r = √(1/dt)*randn() + real(expect(ρ0, (C0 + C0')/2))
+  MC = exp(DenseOperator(r*dt*C0/2 - dt*(C0 + C0')^2/16))
+  MJ = J0
+  U = exp( -im * dt * DenseOperator(H0))
+
+  ρ_expected = U*MJ*MC*ρ0*MC'*MJ'*U'
+  ρ_expected = ρ_expected/tr(ρ_expected)
 
   # compute error
-  err = (Δρ - Δρ_expected).data
-
-  # test
+  err = (ρt[1] - ρ_expected).data
   @test isapprox.(err, 0.0, atol=atol, rtol=0) == BitArray([1 1; 1 1])
 end
 
 # Positivity Test
-@testset "rouchon_positivity" begin
-  tt, ρt = @time rouchon((0, π), ρ0, σy, [σz], [√η*σz]);
+@testset "bayesian_positivity" begin
+  tt, ρt = @time bayesian((0, π), ρ0, σy, [σz], [√η*σz]);
   @test sum(ispositive.(map(e->e.data,ρt))) == length(tt)
 end
 
 # Ensemble Test
-@testset "rouchon_ensemble" begin
-
+@testset "bayesian_ensemble" begin
   # Test Params
   target_max = 0.1
 
@@ -90,14 +90,14 @@ end
   @everywhere C = [√(η*Γ)σz]
 
   # Deterministic expectation values
-  t, evs = @time rouchon(T, ρ0, H, J, []; fn=expects, dt=dt);
+  t, evs = @time bayesian(T, ρ0, H, J, []; fn=expects, dt=dt);
   devs = hcat(evs...)'
 
   # Stochastic
-  println("Sampling $n trajectories across $procs processes (estimate: ~7 minutes)...")
-  t, ens = @time ensemble(rouchon, T, ρ0, H, J, C; fn=expects, dt=dt, N=n);
+  println("Sampling $n trajectories across $procs processes (estimate: ~20 minutes)...")
+  t, ens = @time ensemble(bayesian, T, ρ0, H, J, C; fn=expects, dt=dt, N=n);
   ens = [ens[m,n][ax] for n in 1:length(t), m in 1:n, ax in 1:3]
-  avg = hcat(mean(ens[:,:,1], dims=2), mean(ens[:,:,2], dims=2), mean(ens[:,:,3], dims=2)); 
+  avg = hcat(mean(ens[:,:,1], dims=2), mean(ens[:,:,2], dims=2), mean(ens[:,:,3], dims=2));
 
   # Difference between deterministic and average stochastic expectation values
   diffx = devs[:,1]-avg[:,1]
