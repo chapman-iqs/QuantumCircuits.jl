@@ -111,7 +111,7 @@ end
     return (ts, ρs, dy)
 end
 
-function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, readout=[])
+function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
     ts = range(first(tstep), last(tstep), step=dt)
     return trajectory(meas(dt, H0, J0, C0; rdo=readout, ts=ts), ts, ρ; fn=fn, dt=dt)
 end 
@@ -212,7 +212,7 @@ dy :: record; default dy=[], i.e. simulation generates record time series.
 fn : ρ → Any :: eval function (e.g. to return expectation values instead of density matrices)
 """
 
-function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, readout=[])
+function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
     T = range(T0[1], T0[2], step=dt)
     Id = identityoperator(ρ.basis_l)
     Nn = length(T)
@@ -296,19 +296,35 @@ record :: (default record=[]), i.e. simulation generates record time series.
 N :: number of trajectories (default N=10)
 """
 
-function ensemble(solve, T, ρ0, H, J, C; fn=ρ->ρ, dt=1e-4, record=[], N=10)
+function ensemble(solve, T, ρ0, H, J, C; dt=1e-4, record=[], N=10, kwargs...)
     data = pmap(m -> begin
         dy = length(record) >= m ? record[m] : []
-        tt, ρs, dy = solve(T, ρ0, H, J, C; fn=fn, dt=dt, readout=dy)
+        tt, ρs, dy = solve(T, ρ0, H, J, C; dt=dt, dy=dy, kwargs...)
         return (ρs, dy)
     end, 1:N)
 
-    trajectories = hcat(collect(ρs for (ρs, dy) in data)...)'
-    record = hcat(collect(dy for (ρs, dy) in data)...)'
+    trajectories = collect(ρs for (ρs, dy) in data)
+    record = collect(dy for (ρs, dy) in data)
 
     return (range(T[1], T[2], step=dt), trajectories, record)
 end
 
-export δ, rouchon, ensemble, meas, trajectory, bayesian
+function coarse_grain(fine=[]; n=2)
+    coarse = []
+    for i in 1:length(fine)
+        if i < n
+            push!(coarse, mean(fine[1:i]))
+        else
+            push!(coarse, mean(fine[i-(n-1):i]))
+        end
+    end
+    coarse
+end
+
+function subselect(a=[]; n=2)
+    a[filter(x -> x%n==1, eachindex(a))]
+end
+
+export δ, rouchon, ensemble, meas, trajectory, bayesian, coarse_grain, subselect
 
 end # module
