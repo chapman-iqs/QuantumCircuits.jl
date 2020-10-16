@@ -97,7 +97,7 @@ end
     # init
     ρ0 = ρ
     dy0 = [0.0 for i in rs1]
-    ρs = [ρ0]
+    ρs = [fn(ρ0)]
     dy = [dy0]
 
     for t in ts[2:end]
@@ -105,7 +105,7 @@ end
         push!(ρs, fn(ρ))
         push!(dy, rs)
     end
-
+    
     dy = collect(eachrow(hcat(dy...)))
 
     return (ts, ρs, dy)
@@ -113,7 +113,7 @@ end
 
 function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
     ts = range(first(tstep), last(tstep), step=dt)
-    return trajectory(meas(dt, H0, J0, C0; rdo=readout, ts=ts), ts, ρ; fn=fn, dt=dt)
+    return trajectory(meas(dt, H0, J0, C0; rdo=dy, ts=ts), ts, ρ; fn=fn, dt=dt)
 end 
 
 # Jump-nojump Lindblad propagator
@@ -322,7 +322,7 @@ function coarse_grain(fine=[]; n=2)
 end
 
 function subselect(a=[]; n=2)
-    a[filter(x -> x%n==1, eachindex(a))]
+    a[filter(x -> x%n==0, eachindex(a))]
 end
 
 export δ, rouchon, ensemble, meas, trajectory, bayesian, coarse_grain, subselect
