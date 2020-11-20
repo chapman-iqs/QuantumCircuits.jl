@@ -296,17 +296,19 @@ record :: (default record=[]), i.e. simulation generates record time series.
 N :: number of trajectories (default N=10)
 """
 
-function ensemble(solve, T, ρ0, H, J, C; dt=1e-4, record=[], N=10, kwargs...)
+function ensemble(solve, T, ρ0, H, J, C; dt=1e-4, record=[], N=10, onstart=x->x, kwargs...)
     data = pmap(m -> begin
+        onstart(m)
         dy = length(record) >= m ? record[m] : []
         tt, ρs, dy = solve(T, ρ0, H, J, C; dt=dt, dy=dy, kwargs...)
-        return (ρs, dy)
+        return (ρs, dy, tt)
     end, 1:N)
 
     trajectories = collect(ρs for (ρs, dy) in data)
     record = collect(dy for (ρs, dy) in data)
+    ts = data[1][3]
 
-    return (range(T[1], T[2], step=dt), trajectories, record)
+    return (ts, trajectories, record)
 end
 
 function coarse_grain(fine=[]; n=2)
