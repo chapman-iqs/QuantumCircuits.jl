@@ -48,7 +48,7 @@ and small dt.  [Physical Review A **92**, 052306 (2015)]
   - (t, ρ(t)::Operator) -> (ρ(t+dt)::Operator, rlist::Float64...)
 
 """
-function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[])
+function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=true)
     # Assemble readout generating functions and Kraus operators
     ros = Function[]
     gks = Function[]
@@ -58,8 +58,8 @@ function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[])
     C = map(c -> length(methods(c)) > 0 ? c : t -> c, C0)
 
     for c in C
-        if length(rdo) == 0 
-            push!(ros, readout(dt, c)) 
+        if length(rdo) == 0 && sample
+            push!(ros, readout(dt, c))
         end
         push!(gks, gausskraus(dt, c))
     end
@@ -72,7 +72,7 @@ function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[])
         rs = length(rdo) > 0 ? map(ro -> ro[argmin(abs.(ts .- t))], rdo) : map(ro -> ro(t, ρ), ros)
         gs = map(z -> z[2](t, z[1]), zip(rs,gks))
         ρ1 = foldr(sand, gs; init=ρ);
-        return (L(t, ρ1/tr(ρ1)), rs) 
+        return (L(t, ρ1/tr(ρ1)), rs)
     end
 end
 
@@ -86,11 +86,11 @@ function gausskraus(dt, m::Function)
     v = dt/2
     (t, r) -> let mo = (m(t) .+ m(t)') / 2
                         mo2 = mo^2 / 2
-                        exp(DenseOperator((r*v) * m(t) - v*mo2)) end
+                        exp(DenseOperator((conj(r)*v) * m(t) - v*mo2)) end
 end
 
 @inline function trajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, dt=1e-4)
-    
+
     # probe record size
     _, rs1 = inc(ts[1], ρ)
 
@@ -105,16 +105,16 @@ end
         push!(ρs, fn(ρ))
         push!(dy, rs)
     end
-    
+
     dy = collect(eachrow(hcat(dy...)))
 
     return (ts, ρs, dy)
 end
 
-function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
+function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[], sample=true)
     ts = range(first(tstep), last(tstep), step=dt)
-    return trajectory(meas(dt, H0, J0, C0; rdo=dy, ts=ts), ts, ρ; fn=fn, dt=dt)
-end 
+    return trajectory(meas(dt, H0, J0, C0; rdo=dy, ts=ts, sample=sample), ts, ρ; fn=fn, dt=dt)
+end
 
 # Jump-nojump Lindblad propagator
 """
@@ -205,8 +205,8 @@ C :: stochastic collapse operators
 Keyword Arguments:
 
 dt :: time step; default dt=1e-4
-dy :: record; default dy=[], i.e. simulation generates record time series. 
-            record should be input in the shape [dy_1,...,dy_Nc] given 
+dy :: record; default dy=[], i.e. simulation generates record time series.
+            record should be input in the shape [dy_1,...,dy_Nc] given
             length(C)=Nc collapse operators. Records should have shape
             dy_c[t] indexing the mth trajectory at time T[n]
 fn : ρ → Any :: eval function (e.g. to return expectation values instead of density matrices)
@@ -218,13 +218,13 @@ function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
     Nn = length(T)
     Nj = length(J0)
     Nc = length(C0)
-    
+
     ρs = Any[]
 
     H = length(methods(H0)) > 0 ? H0 : t -> H0
     J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0)
     C = map(c -> length(methods(c)) > 0 ? c : t -> c, C0)
-    
+
     # randomly sample noise time series for EACH stochastic collapse operator C
     if length(dy) == 0
         sim = true
@@ -248,7 +248,7 @@ function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
             M += -0.5J[j](t)'*J[j](t)*dt
             D += J[j](t)*ρ*J[j](t)'*dt
         end
-            
+
         # initialize dy value, if simulation
         if sim==true
             for c in 1:Nc
@@ -260,8 +260,8 @@ function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
         for c in 1:Nc
             M += C[c](t)*dy[c][n]
             D += -C[c](t)*ρ*C[c](t)'*dt
-                
-            # nested sum    
+
+            # nested sum
             for s in 1:Nc
                 M += 0.5C[c](t)*C[s](t)*(dy[c][n]*dy[s][n] - δ(c,s)*dt)
             end
@@ -272,7 +272,7 @@ function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
         ρ = ρ/tr(ρ)
         push!(ρs, fn(ρ))
     end
-        
+
     return (T,ρs,dy)
 end
 
@@ -289,8 +289,8 @@ C :: stochastic collapse operators
 Keyword Arguments:
 
 dt :: time step (default dt=1e-4)
-record :: (default record=[]), i.e. simulation generates record time series. 
-            record should be input in the shape [rec_1,...,rec_Nc] given 
+record :: (default record=[]), i.e. simulation generates record time series.
+            record should be input in the shape [rec_1,...,rec_Nc] given
             length(C)=Nc collapse operators. Records should have shape
             rec[m][c,n] indexing the mth trajectory at time T[n]
 N :: number of trajectories (default N=10)
