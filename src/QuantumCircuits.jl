@@ -77,9 +77,11 @@ function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=
 end
 
 function readout(dt, m::Function)
-    σ = sqrt(1/dt)
-    (t, ρ) -> let mo = (m(t) .+ m(t)')/2;
-                        σ*randn() + real(expect(ρ, mo)) end
+    (t, ρ) -> σ * (randn() + im*randn()) / √dt + expect(ρ, m(t))
+    # # real:
+    # σ = sqrt(1/dt)
+    # (t, ρ) -> let mo = (m(t) .+ m(t)')/2;
+    #                     σ*randn() + real(expect(ρ, mo)) end
 end
 
 function gausskraus(dt, m::Function)
