@@ -77,18 +77,15 @@ function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=
 end
 
 function readout(dt, m::Function)
-    (t, ρ) -> σ * (randn() + im*randn()) / √dt + expect(ρ, m(t))
-    # # real:
-    # σ = sqrt(1/dt)
-    # (t, ρ) -> let mo = (m(t) .+ m(t)')/2;
-    #                     σ*randn() + real(expect(ρ, mo)) end
+    dist = Normal(0, sqrt(dt))
+    (t, ρ) -> expect(ρ, m(t)) + (rand(dist) + im*rand(dist))/(dt * √2)
 end
 
 function gausskraus(dt, m::Function)
     v = dt/2
     (t, r) -> let mo = (m(t) .+ m(t)') / 2
                         mo2 = mo^2 / 2
-                        exp(DenseOperator((conj(r)*v) * m(t) - v*mo2)) end
+                        exp(DenseOperator(conj(r) * v * m(t) - v*mo2)) end
 end
 
 @inline function trajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, dt=1e-4)
@@ -98,7 +95,7 @@ end
 
     # init
     ρ0 = ρ
-    dy0 = [0.0 for i in rs1]
+    dy0 = [0.0im for i in rs1]
     ρs = [fn(ρ0)]
     dy = [dy0]
 
