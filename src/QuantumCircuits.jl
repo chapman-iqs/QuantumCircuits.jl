@@ -258,12 +258,12 @@ function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
 
         # iterate over stochastic collapse operators C
         for c in 1:Nc
-            M += C[c](t)*dy[c][n]
+            M += C[c](t)*conj.(dy[c][n])
             D += -C[c](t)*ρ*C[c](t)'*dt
                 
             # nested sum    
             for s in 1:Nc
-                M += 0.5C[c](t)*C[s](t)*(dy[c][n]*dy[s][n] - δ(c,s)*dt)
+                M += 0.5C[c](t)*C[s](t)*(conj.(dy[c][n])*conj.(dy[s][n]) - δ(c,s)*dt)
             end
         end
 
