@@ -1,7 +1,6 @@
 module QuantumCircuits
 
-using Reexport
-@reexport using QuantumOpticsBase
+using QuantumOptics
 using Distributions
 using Distributed
 
@@ -45,7 +44,7 @@ and no-jump informational backaction. Assumes no time-dependence in `alist`,
 and small dt.  [Physical Review A **92**, 052306 (2015)]
 
 ### Returns:
-  - (t, ρ(t)::Operator) -> (ρ(t+dt)::Operator, rlist::Float64...)
+  - (t, ρ(t)) -> (ρ(t+dt), rlist::Float64...)
 
 """
 function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=true)
@@ -130,7 +129,7 @@ and no-jump informational backaction. Assumes small dt.
 [Physical Review A **92**, 052306 (2015)]
 
 ### Returns:
-  - (t, ρ(t)::Operator) -> ρ(t+dt)
+  - (t, ρ(t)) -> ρ(t+dt)
 """
 function lind(dt; clist=QOp[], flist=Function[])
     ns = Function[]
@@ -141,7 +140,7 @@ function lind(dt; clist=QOp[], flist=Function[])
     else
         Id = identityoperator(first(clist).basis_l)
         op = DenseOperator(Id - dt * mapreduce(a -> a' * a, +, clist))
-        n::Operator = SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
+        n = SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
         push!(ns, (t, ρ) -> n * ρ * n)
         push!(ds, (t, ρ) -> mapreduce(a -> a * ρ * a', +, clist) * dt)
     end
@@ -169,7 +168,7 @@ end
 
 # Hamiltonian propagation
 """
-    ham(dt, H::Operator; ket=false)
+    ham(dt, H; ket=false)
 
 Return increment function for Hamiltonian evolution generated
 by `H` over a time step `dt`.
@@ -178,13 +177,13 @@ Uses an exact (dense) matrix exponential, assuming no time-dependence.
 
 ### Returns:
   - ket=true  : (t, ψ::QKet) -> u * ψ
-  - ket=false : (t, ρ::Operator)  -> u * ρ * u'
+  - ket=false : (t, ρ)  -> u * ρ * u'
 
 """
-function ham(dt, H::Operator)
-    u::Operator = exp( -im * dt * DenseOperator(H))
+function ham(dt, H)
+    u = exp( -im * dt * DenseOperator(H))
     ut = u'
-    (t, ρ::Operator) -> u * ρ * ut
+    (t, ρ) -> u * ρ * ut
 end
 function ham(dt, H::Function)
     (t, state) -> ham(dt, H(t))(t, state)
