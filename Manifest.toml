@@ -444,9 +444,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[LoopVectorization]]
 deps = ["ArrayInterface", "DocStringExtensions", "IfElse", "LinearAlgebra", "OffsetArrays", "Polyester", "Requires", "SLEEFPirates", "Static", "StrideArraysCore", "ThreadingUtilities", "UnPack", "VectorizationBase"]
-git-tree-sha1 = "5a08ccac9925ebb9defac44637e2d0bfc5310ea6"
+git-tree-sha1 = "b16dde45ba9e2506358d4d7fe13f746330e8e622"
 uuid = "bdcacae8-1622-11e9-2a5c-532679323890"
-version = "0.12.36"
+version = "0.12.37"
 
 [[LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]

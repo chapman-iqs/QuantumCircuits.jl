@@ -300,7 +300,7 @@ function ensemble(solve, T, ρ0, H, J, C; dt=1e-4, record=[], N=10, onstart=x->x
         dy = length(record) >= m ? record[m] : []
         tt, ρs, dy = solve(T, ρ0, H, J, C; dt=dt, dy=dy, kwargs...)
         return (ρs, dy, tt)
-    end, 1:N)
+    end, 1:N; batch_size=10)
 
     trajectories = collect(ρs for (ρs, dy) in data)
     record = collect(dy for (ρs, dy) in data)
