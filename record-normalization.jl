@@ -4,6 +4,15 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : missing
+        el
+    end
+end
+
 # ╔═╡ 7d43b95c-d3a4-11eb-16d3-47148906d472
 begin
 	using Random
@@ -49,9 +58,23 @@ md"""
 
 Consider basic two-level system evolution with Hamiltonian
 
-$\hat H = \frac{\Omega_R}2 \sigma_y$.
-
+$\hat H = \frac{\Omega_R}2 \sigma_x,$
+with measurement decay rate $\Gamma_m = 1/2 \tau_m$.
 """
+
+# ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
+md"""
+**include non-idealities?** $(@bind nonideal html"<input type=checkbox >")
+"""
+
+# ╔═╡ 89d7ed1a-653a-414d-9278-7fecf4068f09
+if nonideal
+	md"""There is also energy decay with rate $\Gamma_1 = 1/2 T_1$ and environmental 	dephasing with rate $\Gamma_2 = 1/T_2$."""
+	
+else
+	md"""Environmental effects of energy decay and dephasing are considered 			negligible."""
+
+end
 
 # ╔═╡ 01f57775-b647-4fea-8e96-0b8c8ceeff05
 md" ### Parameters and operators"
@@ -71,18 +94,15 @@ begin
 	Γ2 = 1/T2
 end
 
-# ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
-ideal = true
-
 # ╔═╡ eae605ed-f411-4f33-8066-bd8f01fc8a2d
 begin
 	H = ΩR*σx/2
-	J = ideal ? [√Γm*σz] : [√Γ1*σm, √(Γ2+Γm)*σz]
+	J = nonideal ? [√Γ1*σm, √(Γ2+Γm)*σz] : [√Γm*σz] 
 	C = [√(Γm*η)*σz]
 end
 
 # ╔═╡ 8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
-title_str = ideal ? "ideal Rabi oscillation" : "non-ideal Rabi oscillation";
+title_str = nonideal ? "non-ideal Rabi oscillation" : "ideal Rabi oscillation";
 
 # ╔═╡ 09875de9-a56c-436f-a51e-fb5639d4f267
 begin
@@ -95,14 +115,27 @@ end
 # ╔═╡ 436c2d6e-eed8-4313-9c0c-295a9a706344
 md" ## Simulation"
 
-# ╔═╡ 40a10a59-80a1-4b21-b6e1-d1a774330dd0
-md" ### `QuantumCircuits.jl` general implementation"
+# ╔═╡ dd8df49a-e3b7-48c4-87c5-5e31b6141a3e
+md"""
+measurement type:  $(@bind meas_type html"<select><option value='heterodyne'>heterodyne</option><option value='homodyne'>homodyne</option></select>")
+"""
 
-# ╔═╡ df33032d-29df-41dc-aedb-6dde844f5f01
-begin
-	Random.seed!(1)
-	sol1 = bayesian(T, ρ0, H, J, C; dt=dt, heterodyne=false)
-end
+# ╔═╡ d1184046-7dc1-45b7-898d-00e7a5837dd7
+md"""
+simulation type:  $(@bind sim_type html"<select><option value='bayesian'>bayesian</option><option value='rouchon'>rouchon</option></select>")
+"""
+
+# ╔═╡ de66a6c3-3180-4c54-a8da-5a9976f678e5
+md" Simulate using the `QuantumCircuits.jl`'s $sim_type method."
+
+# ╔═╡ f28ef695-b27f-4c7c-8874-290d68e4e4ff
+md"Now, let's look at the records output from $sim_type. They are stored in the third element of `sol1`:"
+
+# ╔═╡ efcdb0b0-f054-4d04-a319-cd7fd6336183
+md"Plotted as a time series,"
+
+# ╔═╡ e25d6899-54c8-4cb7-a16e-92f653d36c34
+σσ = round(1/sqrt(dt), digits=4)
 
 # ╔═╡ 0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
 md" ### Check against hard-coded numerical simulation"
@@ -145,17 +178,18 @@ function simulate()
 		yn2 = yn1*cos(dt*ΩR) + zn1*sin(dt*ΩR)
 		zn2 = zn1*cos(dt*ΩR) - yn1*sin(dt*ΩR)
 		
-		if ideal
+		if nonideal
+			
+			xn = xn1*exp(-dt/(2T1) - dt/T2 - dt*(1-η)/(2τm*η))
+			yn = yn2*exp(-dt/(2T1) - dt/T2 - dt*(1-η)/(2τm*η))
+			zn = zn2*exp(-dt/T1) - (1 - exp(-dt/T1))
+			
+		else
 			
 			xn = xn1*exp(-dt*(1-η)/(2τm*η))
 			yn = yn2*exp(-dt*(1-η)/(2τm*η))
 			zn = zn2
 			
-		else
-			
-			xn = xn1*exp(-dt/(2T1) - dt/T2 - dt*(1-η)/(2τm*η))
-			yn = yn2*exp(-dt/(2T1) - dt/T2 - dt*(1-η)/(2τm*η))
-			zn = zn2*exp(-dt/T1) - (1 - exp(-dt/T1))
 			
 		end
 		
@@ -176,18 +210,11 @@ end
 # ╔═╡ c06f5b1c-20e0-47a8-b80f-3d6f5353c880
 (tt, dys, blochs) = simulate()
 
-# ╔═╡ 92f9effa-86a9-49b5-9be7-f81a891b23a8
-fit(Normal, convert(Array{Float64}, sol1[3][1]))
-
 # ╔═╡ 865e5929-db0d-4eb9-8f40-9dcdb8bd6c30
 σ = round(sqrt(τm/dt), digits=4)
 
-# ╔═╡ 03049154-e003-4e32-9e3f-90e4d11dbcc8
-md"""
-We expect that the mean of the readout should be σ = $σ, but this does not match the results below. We should check the `master` branch of `QuantumCircuits.jl` to see if this is just an issue on `sacha-dev` branch (some mistake I made while trying to update the code to work with feedback), or if it is an older issue with our code.
-
-Remember this depends on whether the measurement is heterodyne or not, which changes the variance of the distribution by a factor of $\sqrt{2}$; see method `readout`. The below simulations are homodyne measurements.
-"""
+# ╔═╡ dd5439f2-5572-4584-b39c-9f18e07a2165
+sqrt(1/dt)
 
 # ╔═╡ 3258df22-de38-4ab5-92b7-0a828bc32155
 md" ## Utilities "
@@ -238,12 +265,6 @@ function plot_solution(sol; plot_title="Rabi Oscillation")
 
 end
 
-# ╔═╡ 6473130f-484e-47a4-8fac-8ebd5733e4a1
-plot_solution(sol1; plot_title=title_str)
-
-# ╔═╡ 69f19624-075e-42b9-893a-19bc33e5cfbe
-plot_solution(sol1; plot_title=title_str)
-
 # ╔═╡ 5779b365-b466-4fad-90b7-e47df73ea707
 # Plotting
 function plot_blochs((tt, blochs); plot_title="Rabi Oscillation")
@@ -268,13 +289,15 @@ function plot_blochs((tt, blochs); plot_title="Rabi Oscillation")
 end
 
 # ╔═╡ 9f08d06c-437e-47a9-9969-0297c12dbac8
-plot_blochs((tt,blochs))
+plot_blochs((tt,blochs), plot_title=string(title_str, ", hard-coded"))
 
 # ╔═╡ 8d8b700b-bb00-4279-b64e-eb06bd3cb986
 function record_histograms(sols...; plot_title="record histogram", labels=[]::Array)
 	close("all")
 	
 	μσs = []
+	hist_colors = []
+	hist_labels = []
 	
 	for i in 1:length(sols)
 		label = i > length(labels) ? i : labels[i]
@@ -282,14 +305,33 @@ function record_histograms(sols...; plot_title="record histogram", labels=[]::Ar
 
 		(tt, _, dys) = sol
 		ty = typeof(dys[1][end])
+		comp = (ty == ComplexF64)
 		dys = convert(Array{ty}, dys[1])
-
-		# get mean and std dev
-		(μ, σ) = params(fit(Normal, dys))
+		
+		# get mean and std dev for real part
+		(μ, σ) = params(fit(Normal, real.(dys)))
 		push!(μσs, map(p -> round(p, digits=4), (μ, σ)))
 
 		# make histogram
-		n, bins, patches = hist(dys, 50, density=false, facecolor=colors[2i], 									alpha=0.75, label=label)
+		sublabel = comp ? string(label, " (real)") : label
+		
+		n, bins, patches = hist(real.(dys), 50, density=false, 					 									facecolor=colors[2i], alpha=1, label=sublabel)
+		push!(hist_colors, colors[2i])
+		
+		
+		if comp
+			
+			# get mean and std dev for imaginary part
+			(μ, σ) = params(fit(Normal, imag.(dys)))
+			push!(μσs, map(p -> round(p, digits=4), (μ, σ)))
+
+			# make histogram
+			n, bins, patches = hist(imag.(dys), 50, density=false, 					 									facecolor=colors[2i-1], alpha=0.75, 												label=string(label, " (imag)"))
+			push!(hist_colors, colors[2i-1])
+
+		else 
+			
+		end
 
 	end
 	
@@ -300,35 +342,50 @@ function record_histograms(sols...; plot_title="record histogram", labels=[]::Ar
 		str = μσ_strings[i]
 
 		ax.text(0.05, 1 - 0.05i, str, transform=ax.transAxes, fontsize=10,
-			verticalalignment="top", color=colors[2i])
+			verticalalignment="top", color=hist_colors[i])
 		
 	end
 	
 	
 	legend()
-	xlabel(L"$t$")
+	xlabel("value (arbitrary units)")
 	ylabel("frequency")
-	title("histograms")
+	title("record histograms")
 	gcf()
+		
 end
-
-# ╔═╡ 1ee7f64b-7be6-4bd6-a187-c35ec0426096
-record_histograms((tt,blochs,dys), sol1; labels=["hard-coded", "QuantumCircuits.jl"])
 
 # ╔═╡ 92affe90-b18d-4f7a-8da0-f708dc0f7bb8
 # Plotting
-function plot_records(sol; plot_title="record")
+function plot_records(sol; plot_title="record", labels=[]::Array)
 	close("all")
 	
+	label(i) = i > length(labels) ? i : labels[i]
+	labr(i) = string(label(i), " (real)")
+	labi(i) = string(label(i), " (imag)")
+	
 	(tt, _, dys) = sol
+	comp = (typeof(dys[1][end]) == ComplexF64)
     
     # Plot records vs. time
-	p = plot(tt, dys[1], color=colors[2], label=L"record $1$")
-	ax = gca()
-	
-	for i in 2:length(dys)
-		dy = dys[i]
-    	plot(tt, dy, color=colors[2i],label=L"$record i$")
+	if comp
+		p = plot(tt, real.(dys[1]), color=colors[2], label=labr(1))
+		plot(tt, imag.(dys[1]), color=colors[1], label=labi(1))
+		ax = gca()
+		
+		for i in 2:length(dys)
+			dy = dys[i]
+			plot(tt, real.(dy), color=colors[2i],label=labr(i))
+			plot(tt, imag.(dy), color=colors[2i-1],label=labi(i)) end
+		
+	else
+		p = plot(tt, dys[1], color=colors[2], label=label(1))
+		ax = gca()
+		
+		for i in 2:length(dys)
+			dy = dys[i]
+			plot(tt, dy, color=colors[2i],label=label(i)) end
+		
 	end
 	
     xlabel(L"$t$")
@@ -339,10 +396,7 @@ function plot_records(sol; plot_title="record")
 end
 
 # ╔═╡ 5e5a01f3-adc0-46fd-b54f-d6542c3766c7
-plot_records((tt,blochs,dys); plot_title="record, hard-coded")
-
-# ╔═╡ bb21dcf4-5c4c-4683-b60d-1c577888ff09
-plot_records(sol1; plot_title="record, general")
+plot_records((tt,blochs,dys); plot_title="record, hard-coded", labels=("bayesian"))
 
 # ╔═╡ eef64e1d-bf71-4ef9-9e1a-d683cd7be679
 # Plotting
@@ -434,6 +488,59 @@ red(text; title="Note") = Markdown.MD(Markdown.Admonition("danger", title, [text
 # ╔═╡ 5cac0386-f12d-47a9-8e3e-8b0e1b131216
 tan(text; title="Note") = Markdown.MD(Markdown.Admonition("warning", title, [text]))
 
+# ╔═╡ 863696ee-6787-455b-9891-86865ca0c681
+begin 
+	bayes = (sim_type == "bayesian")
+	heterodyne = (meas_type == "heterodyne")
+	
+	if !bayes && heterodyne
+		tan(md" `rouchon` currently does not implement heterodyne. A homodyne simulation will be run.") end
+	
+end
+
+# ╔═╡ df33032d-29df-41dc-aedb-6dde844f5f01
+begin
+	
+	
+	Random.seed!(1)
+	sol1 = bayes ? bayesian(T, ρ0, H, J, C; dt=dt, heterodyne=heterodyne) :
+					rouchon(T, ρ0, H, J, C; dt=dt)
+end
+
+# ╔═╡ 6473130f-484e-47a4-8fac-8ebd5733e4a1
+plot_solution(sol1; plot_title=string(title_str, ", $sim_type"))
+
+# ╔═╡ 5fc6f4f2-202e-404d-be38-3d2626df1ed0
+sol1[3]
+
+# ╔═╡ 2f1d495c-a6b1-440c-acdc-ad89d36bc8f5
+plot_records(sol1; plot_title="record, general", labels=["bayesian"])
+
+# ╔═╡ c49b0f3f-fe63-4086-bafb-2f81141e08a6
+record_histograms(sol1; labels=["bayesian"])
+
+# ╔═╡ 1501fcfb-a944-4ef0-91c7-88f4fa63764e
+plot_solution(sol1; plot_title=string(title_str, ", $sim_type"))
+
+# ╔═╡ 1ee7f64b-7be6-4bd6-a187-c35ec0426096
+record_histograms((tt,blochs,dys), sol1; labels=["hard-coded", "QuantumCircuits.jl"])
+
+# ╔═╡ ad752122-be08-4f4f-a5c5-a3999d6f5ac4
+if heterodyne
+	md"""
+Since we are doing a heterodyne measurement, $sim_type outputs one complex record. This can be understood as two independent real records, each with $\sigma = 1/\sqrt{2 dt}$ = $(round(σσ/sqrt(2),digits=4)) (**check this**)."""
+
+else
+	md"""
+	Since we are doing a homodyne measurement, $sim_type
+	outputs one real record of standard deviation  
+	
+	$\sigma = 1/\sqrt{dt}$ 
+	= $σσ.
+	"""
+end
+
+
 # ╔═╡ e8b31676-5bcf-4ee0-87c9-5b88cc095155
 
 tan(md"I don't think the feedback code I wrote in `QuantumCircuits.jl` is working properly. I think when I am calling `dy` I am not using the form of dy that is already filled with the measured values...")
@@ -458,27 +565,36 @@ md"""
 # ╟─e66e6723-16fe-4d8d-ae1f-f8237f8e8897
 # ╠═601a8b56-2f41-4b2c-9ea2-6b26a52b4e26
 # ╟─18c29abc-1f35-4b5a-bb27-a491c02cc98f
+# ╟─89d7ed1a-653a-414d-9278-7fecf4068f09
+# ╟─c5de979e-de3b-4a20-9fc4-649851a311fa
 # ╟─01f57775-b647-4fea-8e96-0b8c8ceeff05
 # ╠═c43c0486-d3fb-4457-b7ff-1927ec105d53
 # ╠═eae605ed-f411-4f33-8066-bd8f01fc8a2d
-# ╠═c5de979e-de3b-4a20-9fc4-649851a311fa
 # ╠═8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
 # ╠═09875de9-a56c-436f-a51e-fb5639d4f267
 # ╟─436c2d6e-eed8-4313-9c0c-295a9a706344
-# ╟─40a10a59-80a1-4b21-b6e1-d1a774330dd0
+# ╟─de66a6c3-3180-4c54-a8da-5a9976f678e5
+# ╟─dd8df49a-e3b7-48c4-87c5-5e31b6141a3e
+# ╟─d1184046-7dc1-45b7-898d-00e7a5837dd7
+# ╟─863696ee-6787-455b-9891-86865ca0c681
 # ╠═df33032d-29df-41dc-aedb-6dde844f5f01
 # ╠═6473130f-484e-47a4-8fac-8ebd5733e4a1
+# ╟─f28ef695-b27f-4c7c-8874-290d68e4e4ff
+# ╠═5fc6f4f2-202e-404d-be38-3d2626df1ed0
+# ╟─efcdb0b0-f054-4d04-a319-cd7fd6336183
+# ╠═2f1d495c-a6b1-440c-acdc-ad89d36bc8f5
+# ╟─ad752122-be08-4f4f-a5c5-a3999d6f5ac4
+# ╟─e25d6899-54c8-4cb7-a16e-92f653d36c34
+# ╠═c49b0f3f-fe63-4086-bafb-2f81141e08a6
 # ╟─0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
 # ╟─cfb94e57-06a7-4a52-b42e-7db995582670
 # ╟─5022461e-6138-4ff6-9292-2820a8ec18d1
 # ╠═c06f5b1c-20e0-47a8-b80f-3d6f5353c880
 # ╠═9f08d06c-437e-47a9-9969-0297c12dbac8
-# ╠═69f19624-075e-42b9-893a-19bc33e5cfbe
+# ╠═1501fcfb-a944-4ef0-91c7-88f4fa63764e
 # ╠═5e5a01f3-adc0-46fd-b54f-d6542c3766c7
-# ╠═92f9effa-86a9-49b5-9be7-f81a891b23a8
-# ╠═bb21dcf4-5c4c-4683-b60d-1c577888ff09
 # ╠═865e5929-db0d-4eb9-8f40-9dcdb8bd6c30
-# ╠═03049154-e003-4e32-9e3f-90e4d11dbcc8
+# ╠═dd5439f2-5572-4584-b39c-9f18e07a2165
 # ╠═1ee7f64b-7be6-4bd6-a187-c35ec0426096
 # ╟─e8b31676-5bcf-4ee0-87c9-5b88cc095155
 # ╟─3258df22-de38-4ab5-92b7-0a828bc32155
@@ -487,9 +603,9 @@ md"""
 # ╟─fbcefdcc-0db5-4676-8ca8-386501f6a790
 # ╟─4f018bfb-c03d-410b-bec6-1b7070bb309f
 # ╟─5779b365-b466-4fad-90b7-e47df73ea707
-# ╠═8d8b700b-bb00-4279-b64e-eb06bd3cb986
-# ╟─92affe90-b18d-4f7a-8da0-f708dc0f7bb8
-# ╠═eef64e1d-bf71-4ef9-9e1a-d683cd7be679
+# ╟─8d8b700b-bb00-4279-b64e-eb06bd3cb986
+# ╠═92affe90-b18d-4f7a-8da0-f708dc0f7bb8
+# ╟─eef64e1d-bf71-4ef9-9e1a-d683cd7be679
 # ╟─32aa09f0-3493-4360-814c-0c3928029c94
 # ╟─daef5add-d4b1-4c68-b273-f5c386f511d0
 # ╟─47e449dd-57b5-4bf1-936b-f56a132f541a
