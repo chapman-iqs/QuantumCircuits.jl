@@ -3,7 +3,7 @@ module QuantumCircuits
 using Reexport
 @reexport using QuantumOpticsBase
 using Distributions
-using Distributed
+# using Distributed
 
 δ(i,j) = Int(i == j);
 sand(a,b) = a*b*a';
@@ -48,37 +48,64 @@ and small dt.  [Physical Review A **92**, 052306 (2015)]
   - (t, ρ(t)::Operator) -> (ρ(t+dt)::Operator, rlist::Float64...)
 
 """
-function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=true)
-    # Assemble readout generating functions and Kraus operators
-    ros = Function[]
-    gks = Function[]
+function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=true, het=false)
 
-    H = length(methods(H0)) > 0 ? H0 : t -> H0
-    J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0)
-    C = map(c -> length(methods(c)) > 0 ? c : t -> c, C0)
+	feedback = applicable(H0, ts[1], [1])
 
-    for c in C
-        if length(rdo) == 0 && sample
-            push!(ros, readout(dt, c))
-        end
-        push!(gks, gausskraus(dt, c))
-    end
+	# Assemble readout generating functions and Kraus operators
+	ros = Function[]
+	gks = Function[]
 
-    L = lind(dt, H, clist=[], flist=J)
+	H = length(methods(H0)) > 0 ? H0 : t -> H0 # if H0 is already a function of t, set H = H0; if H0 = const, define h(t) a constant function of t
+	J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0) # same, for each element of J0
+	C = map(c -> length(methods(c)) > 0 ? c : t -> c, C0) # same, for each element of C0
 
-    # Increment that samples each readout, applies all Kraus operators
-    # then applies Lindblad dephasing (including Hamiltonian evolution)
-    (t, ρ) -> begin
-        rs = length(rdo) > 0 ? map(ro -> ro[argmin(abs.(ts .- t))], rdo) : map(ro -> ro(t, ρ), ros)
-        gs = map(z -> z[2](t, z[1]), zip(rs,gks))
-        ρ1 = foldr(sand, gs; init=ρ);
-        return (L(t, ρ1/tr(ρ1)), rs)
-    end
+	for c in C
+		if length(rdo) == 0 && sample
+			push!(ros, readout(dt, c, het))
+		end
+		push!(gks, gausskraus(dt, c))
+	end
+
+	L = lind(dt, H, clist=[], flist=J)
+
+
+	if feedback
+
+			(t, ρ, rd) -> begin
+				rs = length(rdo) > 0 ? map(ro -> ro[argmin(abs.(ts .- t))], rdo) : map(ro -> ro(t, ρ), ros)
+				gs = map(z -> z[2](t, z[1]), zip(rs, gks))
+				ρ1 = foldr(sand, gs; init=ρ);
+				return (L(t, ρ1/tr(ρ1), rd), rs)
+			end
+	else
+	# Increment that samples each readout, applies all Kraus operators
+		# then applies Lindblad dephasing (including Hamiltonian evolution)
+		(t, ρ) -> begin
+			# for each experimental record (corresponding to each observable), get the value closest to t
+			# else, for each simulated record, get the value corresponding to (t,ρ)
+			# gives an array (?) of readout values for each observable, at time t.
+			rs = length(rdo) > 0 ? map(ro -> ro[argmin(abs.(ts .- t))], rdo) : map(ro -> ro(t, ρ), ros)
+
+			# for each pair in `zip(rs, gks)`, get the gausskraus operator `z[2]` as a function of `(t,z[1])`,
+			# where `z[1]` is the readout value at `t`
+			gs = map(z -> z[2](t, z[1]), zip(rs, gks))
+
+			# apply each element of gs via `sand` function (sandwich) to ρ
+			ρ1 = foldr(sand, gs; init=ρ);
+			return (L(t, ρ1/tr(ρ1)), rs)
+		end
+
+	end
+
 end
 
-function readout(dt, m::Function)
+
+function readout(dt, m::Function, het::Bool)
     dist = Normal(0, sqrt(dt))
-    (t, ρ) -> expect(ρ, m(t)) + (rand(dist) + im*rand(dist))/(dt * √2)
+	return het ?
+			(t, ρ) -> expect(ρ, m(t)) + (rand(dist) + im*rand(dist))/(dt * √2) :
+			(t, ρ) -> expect(ρ, m(t)) + rand(dist)/dt
 end
 
 function gausskraus(dt, m::Function)
@@ -88,19 +115,48 @@ function gausskraus(dt, m::Function)
                         exp(DenseOperator(conj(r) * v * m(t) - v*mo2)) end
 end
 
-@inline function trajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, dt=1e-4)
-
-    # probe record size
-    _, rs1 = inc(ts[1], ρ)
+@inline function trajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, dt=1e-4, rsize=1, het=false)
 
     # init
     ρ0 = ρ
-    dy0 = [0.0im for i in rs1]
+    dy0 = het ? [0.0im for i in 1:rsize] : [0.0 for i in 1:rsize]
     ρs = [fn(ρ0)]
     dy = [dy0]
 
-    for t in ts[2:end]
-        ρ, rs = inc(t, ρ)
+	for t in ts[2:end]
+		 ρ, rs = inc(t, ρ)
+		 push!(ρs, fn(ρ))
+		 push!(dy, rs)
+ 	end
+
+    dy = collect(eachrow(hcat(dy...)))
+
+    return (ts, ρs, dy)
+end
+
+@inline function trajectory(inc::Function, ts, ρ, td; fn::Function=ρ->ρ, dt=1e-4, rsize=1, het=false)
+
+	# init
+    ρ0 = ρ
+    dy0 = het ? [0.0im for i in 1:rsize] : [0.0 for i in 1:rsize]
+    ρs = [fn(ρ0)]
+    dy = [dy0]
+
+	# find time-delay in terms of indices
+	td_index = argmin(abs.(ts .- td))
+
+	# before feedback delay is turned on
+	for t in ts[2:td_index]
+		rd = dy0
+		ρ, rs = inc(t, ρ, rd)
+		push!(ρs, fn(ρ))
+		push!(dy, rs)
+	end
+
+	for i in (td_index + 1):length(ts)
+		t = ts[i]
+		rd = dy[i - td_index]
+        ρ, rs = inc(t, ρ, rd)
         push!(ρs, fn(ρ))
         push!(dy, rs)
     end
@@ -110,9 +166,14 @@ end
     return (ts, ρs, dy)
 end
 
-function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[], sample=true)
-    ts = range(first(tstep), last(tstep), step=dt)
-    return trajectory(meas(dt, H0, J0, C0; rdo=dy, ts=ts, sample=sample), ts, ρ; fn=fn, dt=dt)
+
+function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[], td=0.0, sample=true, heterodyne=false)
+	ts = range(first(tstep), last(tstep), step=dt)
+	feedback = applicable(H0, ts[1], [1])
+	return feedback ?
+			trajectory(meas(dt, H0, J0, C0; rdo=dy, ts=ts, sample=sample, het=heterodyne), ts, ρ, td; fn=fn, dt=dt, rsize=length(C0), het=heterodyne) :
+			trajectory(meas(dt, H0, J0, C0; rdo=dy, ts=ts, sample=sample, het=heterodyne), ts, ρ; fn=fn, dt=dt, rsize=length(C0), het=heterodyne)
+
 end
 
 # Jump-nojump Lindblad propagator
@@ -161,11 +222,16 @@ function lind(dt; clist=QOp[], flist=Function[])
     (t, ρ) -> mapreduce(f -> f(t, ρ), +, ds)
 end
 function lind(dt, H; clist=QOp[], flist=Function[])
+
+	feedback = applicable(H, 1, [1])
     # Rely on Hamiltonian to specify type of H
     h = ham(dt, H)
     # Apply Hamiltonian first, then the Lindblad increment
-    (t, ρ) -> lind(dt, clist=clist, flist=flist)(t, h(t, ρ))
+	return feedback ?
+			(t, ρ, r) -> lind(dt, clist=clist, flist=flist)(t, h(t, ρ, r)) :
+			(t, ρ) -> lind(dt, clist=clist, flist=flist)(t, h(t, ρ))
 end
+
 
 # Hamiltonian propagation
 """
@@ -182,14 +248,18 @@ Uses an exact (dense) matrix exponential, assuming no time-dependence.
 
 """
 function ham(dt, H::Operator)
+
     u::Operator = exp( -im * dt * DenseOperator(H))
     ut = u'
     (t, ρ::Operator) -> u * ρ * ut
+
 end
 function ham(dt, H::Function)
-    (t, state) -> ham(dt, H(t))(t, state)
+	feedback = applicable(H, 1, [1])
+	return feedback ?
+			(t, state, r) -> ham(dt, H(t, r))(t, state) :
+			(t, state) -> ham(dt, H(t))(t, state)
 end
-
 """
     rouchon(T, ρ0, H, J, C; <keyword arguments>)
 
@@ -296,7 +366,7 @@ N :: number of trajectories (default N=10)
 """
 
 function ensemble(solve, T, ρ0, H, J, C; dt=1e-4, record=[], N=10, onstart=x->x, kwargs...)
-    data = pmap(m -> begin
+    data = map(m -> begin
         onstart(m)
         dy = length(record) >= m ? record[m] : []
         tt, ρs, dy = solve(T, ρ0, H, J, C; dt=dt, dy=dy, kwargs...)

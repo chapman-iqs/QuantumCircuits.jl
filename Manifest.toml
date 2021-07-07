@@ -301,9 +301,9 @@ uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
 version = "1.12.0+1"
 
 [[HalfIntegers]]
-git-tree-sha1 = "d0b6bce900c194be44407526978feecf84df8a80"
+git-tree-sha1 = "8aeed192be8b368c9f5c149806db90f4451c8bb1"
 uuid = "f0d1745a-41c9-11e9-1dd9-e5d34d218721"
-version = "1.3.2"
+version = "1.3.3"
 
 [[Hwloc]]
 deps = ["Hwloc_jll"]
@@ -413,9 +413,9 @@ uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 
 [[Libiconv_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "8d22e127ea9a0917bc98ebd3755c8bd31989381e"
+git-tree-sha1 = "42b62845d70a619f063a7da093d995ec8e15e778"
 uuid = "94ce4f54-9a6c-5748-9c1c-f9c7231a4531"
-version = "1.16.1+0"
+version = "1.16.1+1"
 
 [[LightGraphs]]
 deps = ["ArnoldiMethod", "DataStructures", "Distributed", "Inflate", "LinearAlgebra", "Random", "SharedArrays", "SimpleTraits", "SparseArrays", "Statistics"]
@@ -444,9 +444,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[LoopVectorization]]
 deps = ["ArrayInterface", "DocStringExtensions", "IfElse", "LinearAlgebra", "OffsetArrays", "Polyester", "Requires", "SLEEFPirates", "Static", "StrideArraysCore", "ThreadingUtilities", "UnPack", "VectorizationBase"]
-git-tree-sha1 = "5a08ccac9925ebb9defac44637e2d0bfc5310ea6"
+git-tree-sha1 = "cf4e97143e0b26f8d6c3bc293ae433a088508d0f"
 uuid = "bdcacae8-1622-11e9-2a5c-532679323890"
-version = "0.12.36"
+version = "0.12.39"
 
 [[LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
@@ -543,9 +543,9 @@ version = "0.3.8"
 
 [[OffsetArrays]]
 deps = ["Adapt"]
-git-tree-sha1 = "1381a7142eefd4cd12f052a4d2d790fe21bd1d55"
+git-tree-sha1 = "e436bb81d2ce4f01fb02374c4410e5a9229c85f9"
 uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-version = "1.9.2"
+version = "1.10.0"
 
 [[OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
@@ -688,9 +688,9 @@ uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[Random123]]
 deps = ["Libdl", "Random", "RandomNumbers"]
-git-tree-sha1 = "7c6710c8198fd4444b5eb6a3840b7d47bd3593c5"
+git-tree-sha1 = "0e8b146557ad1c6deb1367655e052276690e71a3"
 uuid = "74087812-796a-5b5d-8853-05524746bad3"
-version = "1.3.1"
+version = "1.4.2"
 
 [[RandomNumbers]]
 deps = ["Random", "Requires"]
@@ -739,9 +739,9 @@ version = "1.1.0"
 
 [[Revise]]
 deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
-git-tree-sha1 = "2b95c41e53c8f429ef56de5c3718f01831141751"
+git-tree-sha1 = "410bbe13d9a7816e862ed72ac119bda7fb988c08"
 uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
-version = "3.1.16"
+version = "3.1.17"
 
 [[Rmath]]
 deps = ["Random", "Rmath_jll"]
@@ -766,9 +766,9 @@ version = "0.6.21"
 
 [[SciMLBase]]
 deps = ["ArrayInterface", "CommonSolve", "ConstructionBase", "Distributed", "DocStringExtensions", "IteratorInterfaceExtensions", "LinearAlgebra", "Logging", "RecipesBase", "RecursiveArrayTools", "StaticArrays", "Statistics", "Tables", "TreeViews"]
-git-tree-sha1 = "05aa1ee0b6f0c875b0d6572a77c57225e47b688f"
+git-tree-sha1 = "23b6b88b0c69a1666bd91cbf9d1216588721615c"
 uuid = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
-version = "1.13.4"
+version = "1.13.5"
 
 [[Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
@@ -943,9 +943,9 @@ version = "1.8.0"
 
 [[VectorizationBase]]
 deps = ["ArrayInterface", "Hwloc", "IfElse", "Libdl", "LinearAlgebra", "Static"]
-git-tree-sha1 = "7c8974c7de377a2dc67e778017c78f96fc8f0fc6"
+git-tree-sha1 = "b4d183e50e32f35132aec8586a6e4822af2e8e75"
 uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
-version = "0.20.16"
+version = "0.20.17"
 
 [[VersionParsing]]
 git-tree-sha1 = "80229be1f670524750d905f8fc8148e5a8c4537f"
