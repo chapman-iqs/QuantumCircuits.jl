@@ -129,17 +129,29 @@ begin
 	sol1 = bayesian(T, ρ0, H0, J, C; dt=dt, td=td, heterodyne=false)
 end
 
+# ╔═╡ 95ebf3b0-afbf-4dfe-869e-f0428fe49d63
+md"""
+Note `bayesian` outputs a record of the form
+```math
+R \equiv \frac{r}{\sqrt{\tau_m}} = \frac{z}{\sqrt{\tau_m}} + \frac{dW}{dt},
+```
+where $dW \sim \mathcal N(0,\sqrt{dt})$ is a Wiener increment. The hard-coded simulation that follows will take the normalized record $r$ as input, so this is calculated below.
+"""
+
+# ╔═╡ 304d5f8b-8870-46e9-a293-2df0d2c2895b
+begin
+	(tb, ρb, dydtb) = sol1
+	Rb = collect(dydtb[1]) # record output from bayesian
+	rs = Rb*sqrt(τm) # rescale record for input into hard-coded simulation
+end
+
 # ╔═╡ 0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
 md" ### Check against hard-coded numerical simulation"
 
 # ╔═╡ 5022461e-6138-4ff6-9292-2820a8ec18d1
-# using a `let` block (instead of begin) allows for the necessary
-# scope for variables like xn, yn, zn
-
-function simulate()
+function blochevolve(; rs=[])
 	# readout distribution
-	Random.seed!(1)
-	dist = Normal(0, sqrt(τm/dt))
+	sim = (length(rs) == 0)
 	
 	ts = range(first(T), last(T), step=dt)
 	(dy, xs, ys, zs) = map(i -> [], 1:4)
@@ -148,16 +160,23 @@ function simulate()
 	xn = x0
 	yn = y0
 	zn = z0
-	push!(dy, 0)
 	push!(xs, xn)
 	push!(ys, yn)
 	push!(zs, zn)
-
 	
-	for t in ts[2:end]
+	if sim
+		dist = Normal(0, sqrt(τm/dt))
+		push!(rs, 0) end
 		
-		# sample from distribution
-		r = zn + rand(dist)
+
+	for i in 2:length(ts)
+		
+		# sample from distribution		
+		if sim
+			r = zn + rand(dist)
+			push!(rs, r)
+		else
+			r = rs[i] end
 		
  		# update equations
 		pn = cosh(r*dt/τm) + zn*sinh(r*dt/τm)
@@ -169,22 +188,17 @@ function simulate()
 		yn2 = yn1*cos(dt*Δ) + zn1*sin(dt*Δ)
 		zn2 = zn1*cos(dt*Δ) - yn1*sin(dt*Δ)
 		
-		if ideal
-			
+		if ideal 
 			xn = xn1*exp(-dt*(1-η)/(2τm*η))
 			yn = yn2*exp(-dt*(1-η)/(2τm*η))
 			zn = zn2
-			
-		else
-			
+		
+		else 
 			xn = xn1*exp(-dt/(2T1) - dt/T2 - dt*(1-η)/(2τm*η))
 			yn = yn2*exp(-dt/(2T1) - dt/T2 - dt*(1-η)/(2τm*η))
-			zn = zn2*exp(-dt/T1) - (1 - exp(-dt/T1))
-			
-		end
+			zn = zn2*exp(-dt/T1) - (1 - exp(-dt/T1)) end
 		
 		# store values
-		push!(dy, r)
 		push!(xs, xn)
 		push!(ys, yn)
 		push!(zs, zn)
@@ -192,28 +206,28 @@ function simulate()
 
 	end
 	
-	return ts, [dy], (xs, ys, zs)
+	return ts, [rs], (xs, ys, zs)
 	
 	
 end
 
 # ╔═╡ d614159d-c5d4-49cb-9320-115e2b9d59d3
-(tt, dys, blochs) = simulate()
+(tt, r, bloch) = blochevolve(rs=rs)
+
+# ╔═╡ edc0f4eb-755d-4ff3-bd70-634515d50e06
+r[1]==rs
 
 # ╔═╡ a74e31c5-a582-4240-a54f-cd09a3b0b720
 fit(Normal, convert(Array{Float64}, dys[1]))
-
-# ╔═╡ 0ed59062-6696-4a94-b85b-baa7c93df3a1
-(xx,yy,zz) = blochs
-
-# ╔═╡ 2b750028-1c81-4180-a59a-02bcbd331c7a
-μ = mean(zz)
 
 # ╔═╡ e2acd522-2add-4aff-ad49-30d7ab0c8292
 σ = sqrt(τm/dt)
 
 # ╔═╡ 65d5b466-263b-48d4-a0ce-7ecf32bcacbb
 fit(Normal, convert(Array{Float64}, sol1[3][1]))
+
+# ╔═╡ 9fa0d08b-d902-4850-ba87-546ab58a108f
+plot_records(sol1; plot_title="record, general")
 
 # ╔═╡ 7d41021a-5ee7-4f06-97c0-4efd490b88f9
 dif = abs.(sol1[3] - dys)
@@ -227,16 +241,56 @@ dys[1]
 # ╔═╡ 3258df22-de38-4ab5-92b7-0a828bc32155
 md" ## Utilities "
 
-# ╔═╡ 1e027b22-90e8-4b48-9eb9-2722e1aa612e
+# ╔═╡ e59530ae-7f27-4836-a352-9d0a08d62451
+function rms(ser1::Array, ser2::Array)
+	l = min(length(ser1), length(ser2))
+	sqrt(sum((ser1[1:l] - ser2[1:l]).^2))/l
+end
+
+# ╔═╡ 0fa84d7f-59ff-4a27-821f-2114464129a6
 expects = ρ -> collect(real(expect(ρ, s)) for s in [σx,σy,σz,ρ]) # ρ -> [<x>,<y>,<z>,<ρ>]
 
-# ╔═╡ 1bd31808-2978-4168-a40b-831abd09b69a
+# ╔═╡ c9a3a847-d910-4433-926a-d1bfd012f248
+function blochs(sol)
+	(tt, ρt, _) = sol
+
+	# Get Bloch components
+	evs0 = expects.(ρt);
+	xx,yy,zz,ρρ = [map(x -> x[i], evs0) for i in 1:4];
+
+	(collect(tt), xx, yy, zz, ρρ)
+	
+end
+
+# ╔═╡ d6734dcc-e5ee-4523-9970-b46542b1372a
+plot_records((tt,blochs,dys); plot_title="record, hard-coded")
+
+# ╔═╡ 0ed59062-6696-4a94-b85b-baa7c93df3a1
+(xx,yy,zz) = blochs
+
+# ╔═╡ 2b750028-1c81-4180-a59a-02bcbd331c7a
+μ = mean(zz)
+
+# ╔═╡ 739984d0-91a6-45d1-bd2a-0561bfb3e4d5
 purity(x,y,z) = 0.5*(1 + x^2 + y^2 + z^2)
 
-# ╔═╡ fbcefdcc-0db5-4676-8ca8-386501f6a790
+# ╔═╡ 8f40ea32-6f75-4119-b90c-c72b7749360f
 R(x,y,z) = sqrt(x^2 + y^2 + z^2)
 
-# ╔═╡ 47e449dd-57b5-4bf1-936b-f56a132f541a
+# ╔═╡ 8bb2e4ea-e480-4e03-be07-24a5c4d6c780
+function subseries(rec, T, dt; scale=2)
+	ts = collect(range(first(T), last(T), step=dt))
+	tts = subselect(real(coarse_grain(ts; n=scale)); n=scale)
+	(ti, tf) = (tts[1], tts[end])
+	dtt = dt * scale
+	
+	subrec = subselect(real(coarse_grain(rec; n=scale)); n=scale)
+	
+	(tts, subrec)
+	
+end
+
+# ╔═╡ 16aed026-dcfd-432f-8028-32c7ef3afa5b
 # colorscheme
 begin
 	colorscheme = "Paired"
@@ -245,7 +299,7 @@ begin
 	md" `colorscheme`"
 end
 
-# ╔═╡ 4f018bfb-c03d-410b-bec6-1b7070bb309f
+# ╔═╡ 69855c0b-c7e3-4e6c-bffa-7d5e47a55b1b
 # Plotting
 function plot_solution(sol; plot_title="Rabi Oscillation")
 	
@@ -279,7 +333,7 @@ plot_solution(sol1; plot_title=title_str)
 # ╔═╡ 604d9542-155f-4c29-a5ba-5997ac586ef5
 plot_solution(sol1; plot_title=title_str)
 
-# ╔═╡ 5779b365-b466-4fad-90b7-e47df73ea707
+# ╔═╡ b41b51dc-0763-4ad0-90e7-8e54fcc7d916
 # Plotting
 function plot_blochs((tt, blochs); plot_title="Rabi Oscillation")
 	close("all")
@@ -303,38 +357,115 @@ function plot_blochs((tt, blochs); plot_title="Rabi Oscillation")
 end
 
 # ╔═╡ 0d026ed1-10ed-4d5a-b897-6a3e91a78c1e
-plot_blochs((tt,blochs); plot_title=title_str_hc)
+plot_blochs((tt,bloch); plot_title=title_str_hc)
 
-# ╔═╡ 92affe90-b18d-4f7a-8da0-f708dc0f7bb8
-# Plotting
-function plot_records(sol; plot_title="record")
+# ╔═╡ 6afc5215-2b51-425f-aecc-b20e15d5128a
+function record_histograms(records...; plot_title="record histogram", labels=[]::Array, density=false)
 	close("all")
 	
-	(tt, _, dys) = sol
-    
-    # Plot records vs. time
-	p = plot(tt, dys[1], color=colors[2], label=L"record $1$")
-	ax = gca()
+	μσs = []
+	hist_colors = []
+	hist_labels = []
 	
-	for i in 2:length(dys)
-		dy = dys[i]
-    	plot(tt, dy, color=colors[2i],label=L"$record i$")
+	for i in 1:length(records)
+		label = i > length(labels) ? i : labels[i]
+		dys = records[i]
+		
+		# get mean and std dev for real part
+		(μ, σ) = params(fit(Normal, dys))
+		push!(μσs, map(p -> round(p, digits=4), (μ, σ)))
+
+		# make histogram		
+		n, bins, patches = hist(dys, 50, density=density, 					 									facecolor=colors[2i], alpha=1, label=label)
+		push!(hist_colors, colors[2i])
+		
+
 	end
 	
-    xlabel(L"$t$")
-    ylabel("arbitrary units")
+	# write down (μ, σ) pairs as text boxes
+	μσ_strings = map(μσ -> string("(μ, σ) = (", μσ[1], ", ", μσ[2], ")\n"), μσs)
+	ax = gca()
+	for i in 1:length(μσ_strings)
+		str = μσ_strings[i]
+
+		ax.text(0.05, 1 - 0.05i, str, transform=ax.transAxes, fontsize=10,
+			verticalalignment="top", color=hist_colors[i])
+		
+	end
+	
+	
+	legend()
+	xlabel("value (arbitrary units)")
+	ylabel(density ? "relative frequency" : "frequency")
+	title("record histograms")
+	gcf()
+		
+end
+
+# ╔═╡ a1c5942e-4c27-4cbb-8fa8-b47d9449c523
+# Plotting
+function plot_timeseries(tt::Array, series...; plot_title="time series", xlab=L"$t$", ylab="arbitrary units", labels=[]::Array, colorpairs=false, kwargs...)
+	close("all")
+	ser_colors(i) = colorpairs ? colors[i] : colors[2i]
+	
+	label(i) = i > length(labels) ? i : labels[i]
+    
+    # Plot records vs. time
+	ser = series[1]
+	p = plot(tt, ser, color=ser_colors(1), label=label(1), kwargs...)
+	ax = gca()
+	
+	if length(series) > 1
+		
+		for i in 2:length(series)
+			ser = series[i]
+			plot(tt, ser, color=ser_colors(i),label=label(i), kwargs...) 
+		end
+		
+	end
+	
+    xlabel(xlab)
+    ylabel(ylab)
     title(plot_title)
     legend()
     gcf()
+	
 end
 
-# ╔═╡ d6734dcc-e5ee-4523-9970-b46542b1372a
-plot_records((tt,blochs,dys); plot_title="record, hard-coded")
+# ╔═╡ aec50388-2682-44cd-aab8-6474cc863f31
+# Plotting
+function plot_timeseries(ttseries...; plot_title="time series", xlab=L"$t$", ylab="arbitrary units", labels=[]::Array, colorpairs=false)
+	close("all")
+	ser_colors(i) = colorpairs ? colors[i] : colors[2i]
+	
+	label(i) = i > length(labels) ? i : labels[i]
+    
+    # Plot records vs. time
+	(tt, ser) = ttseries[1]
+	p = plot(tt, ser, color=ser_colors(1), label=label(1))
+	ax = gca()
+	
+	if length(ttseries) > 1
+		
+		for i in 2:length(ttseries)
+			(tt, ser) = ttseries[i]
+			plot(tt, ser, color=ser_colors(i),label=label(i)) 
+		end
+		
+	end
+	
+    xlabel(xlab)
+    ylabel(ylab)
+    title(plot_title)
+    legend()
+    gcf()
+	
+end
 
-# ╔═╡ 9fa0d08b-d902-4850-ba87-546ab58a108f
-plot_records(sol1; plot_title="record, general")
+# ╔═╡ 369aa5bf-b76c-444f-aa48-4c7403b1e92c
+plot_timeseries((tb, Rb); plot_title="bayesian simulated record")
 
-# ╔═╡ eef64e1d-bf71-4ef9-9e1a-d683cd7be679
+# ╔═╡ c541a88e-0a5a-48d2-b490-91ef7500dbe5
 # Plotting
 function plot_solutions((sol1,sol2); plot_title="Rabi Oscillation")
     close("all")
@@ -368,7 +499,7 @@ function plot_solutions((sol1,sol2); plot_title="Rabi Oscillation")
 	gcf()
 end
 
-# ╔═╡ 32aa09f0-3493-4360-814c-0c3928029c94
+# ╔═╡ c0c7bcf3-3a8e-489d-9bda-4113764190ec
 function plot_evals((tt1, evals); α=0.1, linewidth=1, labels=false)
     xxs,yys,zzs,ρρs = [map(x -> x[i], evals) for i in 1:4];
     if labels
@@ -386,7 +517,7 @@ function plot_evals((tt1, evals); α=0.1, linewidth=1, labels=false)
 
 end
 
-# ╔═╡ daef5add-d4b1-4c68-b273-f5c386f511d0
+# ╔═╡ abcd28b0-8d41-4953-9bda-800c56a9fa27
 function plot_ensemble(sol_ens; α=0.1, linewidth=1, labels=false, average=false)
     close("all")
 	tt1 = sol_ens[1]
@@ -415,13 +546,13 @@ function plot_ensemble(sol_ens; α=0.1, linewidth=1, labels=false, average=false
 	gcf()
 end
 
-# ╔═╡ 2faba1da-cc7c-408b-9253-10c0185d978d
+# ╔═╡ 36b2bbc2-55ac-45ad-b458-a792c0acddc1
 green(text; title="Note") = Markdown.MD(Markdown.Admonition("correct", title, [text]))
 
-# ╔═╡ 9098967b-9e56-4062-9455-65bbaab3c5e4
+# ╔═╡ b5c85a10-9f32-43d4-a4ea-5ec2b5dd37da
 red(text; title="Note") = Markdown.MD(Markdown.Admonition("danger", title, [text]))
 
-# ╔═╡ 5cac0386-f12d-47a9-8e3e-8b0e1b131216
+# ╔═╡ 7bfcd716-0b89-4ff0-85e5-0b7fd65a305d
 tan(text; title="Note") = Markdown.MD(Markdown.Admonition("warning", title, [text]))
 
 # ╔═╡ e8b31676-5bcf-4ee0-87c9-5b88cc095155
@@ -429,18 +560,11 @@ tan(text; title="Note") = Markdown.MD(Markdown.Admonition("warning", title, [tex
 tan(md"I don't think the feedback code I wrote in `QuantumCircuits.jl` is working properly. I think when I am calling `dy` I am not using the form of dy that is already filled with the measured values...")
 
 
-# ╔═╡ 9391f19c-8c1d-4366-b76a-f304fe65ac0d
+# ╔═╡ c44d4025-7ce8-4623-bc97-7bbb555914d1
 blue(text; title="Note") = Markdown.MD(Markdown.Admonition("note", title, [text]))
 
-# ╔═╡ 8387e17a-5672-4aed-9bee-130c8743375b
+# ╔═╡ 3cf94694-4002-4c1c-9593-e61ea5c99b7b
 hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]))
-
-# ╔═╡ 7c9bcaed-d611-4994-96b4-71ea86867808
-md"""
-!!! warning "Edit"
-
-	We need to use simple master equation API rather than `bayesian` here. I'm not sure this currently exists in `QuantumCircuits.jl`, but should probably be the `jump-no-jump` method. Or does `bayesian` automatically do that in the absence of measurement?
-"""
 
 # ╔═╡ Cell order:
 # ╠═7d43b95c-d3a4-11eb-16d3-47148906d472
@@ -457,9 +581,13 @@ md"""
 # ╟─436c2d6e-eed8-4313-9c0c-295a9a706344
 # ╟─40a10a59-80a1-4b21-b6e1-d1a774330dd0
 # ╠═df33032d-29df-41dc-aedb-6dde844f5f01
+# ╟─95ebf3b0-afbf-4dfe-869e-f0428fe49d63
+# ╠═304d5f8b-8870-46e9-a293-2df0d2c2895b
 # ╠═6473130f-484e-47a4-8fac-8ebd5733e4a1
+# ╠═369aa5bf-b76c-444f-aa48-4c7403b1e92c
 # ╟─0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
 # ╠═5022461e-6138-4ff6-9292-2820a8ec18d1
+# ╠═edc0f4eb-755d-4ff3-bd70-634515d50e06
 # ╠═d614159d-c5d4-49cb-9320-115e2b9d59d3
 # ╠═0d026ed1-10ed-4d5a-b897-6a3e91a78c1e
 # ╠═604d9542-155f-4c29-a5ba-5997ac586ef5
@@ -475,19 +603,23 @@ md"""
 # ╠═d37aaf9e-1d74-47ed-a0a4-0876316f6cda
 # ╟─e8b31676-5bcf-4ee0-87c9-5b88cc095155
 # ╟─3258df22-de38-4ab5-92b7-0a828bc32155
-# ╟─1e027b22-90e8-4b48-9eb9-2722e1aa612e
-# ╟─1bd31808-2978-4168-a40b-831abd09b69a
-# ╟─fbcefdcc-0db5-4676-8ca8-386501f6a790
-# ╠═4f018bfb-c03d-410b-bec6-1b7070bb309f
-# ╠═5779b365-b466-4fad-90b7-e47df73ea707
-# ╠═92affe90-b18d-4f7a-8da0-f708dc0f7bb8
-# ╟─eef64e1d-bf71-4ef9-9e1a-d683cd7be679
-# ╟─32aa09f0-3493-4360-814c-0c3928029c94
-# ╟─daef5add-d4b1-4c68-b273-f5c386f511d0
-# ╟─47e449dd-57b5-4bf1-936b-f56a132f541a
-# ╟─2faba1da-cc7c-408b-9253-10c0185d978d
-# ╟─9098967b-9e56-4062-9455-65bbaab3c5e4
-# ╠═5cac0386-f12d-47a9-8e3e-8b0e1b131216
-# ╟─9391f19c-8c1d-4366-b76a-f304fe65ac0d
-# ╟─8387e17a-5672-4aed-9bee-130c8743375b
-# ╟─7c9bcaed-d611-4994-96b4-71ea86867808
+# ╟─e59530ae-7f27-4836-a352-9d0a08d62451
+# ╟─c9a3a847-d910-4433-926a-d1bfd012f248
+# ╟─0fa84d7f-59ff-4a27-821f-2114464129a6
+# ╟─739984d0-91a6-45d1-bd2a-0561bfb3e4d5
+# ╟─8f40ea32-6f75-4119-b90c-c72b7749360f
+# ╟─69855c0b-c7e3-4e6c-bffa-7d5e47a55b1b
+# ╟─b41b51dc-0763-4ad0-90e7-8e54fcc7d916
+# ╟─6afc5215-2b51-425f-aecc-b20e15d5128a
+# ╟─8bb2e4ea-e480-4e03-be07-24a5c4d6c780
+# ╟─a1c5942e-4c27-4cbb-8fa8-b47d9449c523
+# ╟─aec50388-2682-44cd-aab8-6474cc863f31
+# ╟─c541a88e-0a5a-48d2-b490-91ef7500dbe5
+# ╟─c0c7bcf3-3a8e-489d-9bda-4113764190ec
+# ╟─abcd28b0-8d41-4953-9bda-800c56a9fa27
+# ╟─16aed026-dcfd-432f-8028-32c7ef3afa5b
+# ╟─36b2bbc2-55ac-45ad-b458-a792c0acddc1
+# ╟─b5c85a10-9f32-43d4-a4ea-5ec2b5dd37da
+# ╟─7bfcd716-0b89-4ff0-85e5-0b7fd65a305d
+# ╟─c44d4025-7ce8-4623-bc97-7bbb555914d1
+# ╟─3cf94694-4002-4c1c-9593-e61ea5c99b7b
