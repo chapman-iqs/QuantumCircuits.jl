@@ -415,47 +415,6 @@ $(@bind n0 html"<input type=range min=1. max=100. step=1 value=10>")
 # ╔═╡ 64767210-f6d5-4d01-88bb-0e25e327fd83
 md" $n_0$ = $n0 "
 
-# ╔═╡ 5f98cd8f-2f26-4fd3-b7fb-a75ee4469875
-md"""
-## Systematic comparison of rouchon + bayesian
-"""
-
-# ╔═╡ a504e2af-58ab-4819-af4c-fdcecc0ad0b4
-md"""
-In order to systematically compare `rouchon` and `bayesian`, we'll first generate 100 simulated records using `bayesian`:
-"""
-
-# ╔═╡ 6cf47c1d-7c11-4bd9-a74d-73c6d314f691
-N = 20
-
-# ╔═╡ 25512701-e9d4-430e-8dd2-11716285d49b
-ensb = ensemble(bayesian, T, ρ0, H, J, C; dt=dt, N=N)
-
-# ╔═╡ 14391721-a7be-4055-a6ca-7664b95ff23d
-md"""
-then use those same records to reconstruct trajectories using rouchon:
-"""
-
-# ╔═╡ 34029d43-1946-49fa-b7b6-ab3e06406f72
-ensr = ensemble(rouchon, T, ρ0, H, J, C; dt=dt, N=N)
-
-# ╔═╡ 1aa035ea-5ced-459f-8fd9-82e37e592d12
-md" #### RMS error"
-
-# ╔═╡ f8854877-3cd7-4b4f-a534-a7269b153462
-md"""
-Find the root-mean-square (RMS) error between the trajectories generated from coarse-grained records at scale dt and the original trajectories.
-"""
-
-# ╔═╡ 2da3a708-9bec-4207-889f-3632a3fa940b
-nlist = prepend!(collect(2:2:100), [1])
-
-# ╔═╡ 3db7293a-ef8f-4ec5-a894-3805514c2210
-dydt=[[1,2,3],[5,6,7]]
-
-# ╔═╡ 69f145d7-758b-479a-801a-483e1f823074
-dydt./dt
-
 # ╔═╡ e7ffdfb4-622e-4248-a71b-907ea1cbb8a5
 md"""
 
@@ -464,12 +423,6 @@ md"""
 [1] P. Rouchon and J. F. Ralph, Efficient Quantum Filtering for Quantum Feedback Control, Phys. Rev. A 91, 012118 (2015).
 
 """
-
-# ╔═╡ 389364fb-cb2d-4a48-ba05-f7a222adba91
-min(3,5)
-
-# ╔═╡ 4070b2da-508d-467b-bacb-e3c4dacbe641
-
 
 # ╔═╡ 2b7aa36e-e64a-4839-875e-2c472763cb80
 md" ## Utilities "
@@ -501,12 +454,6 @@ purity(x,y,z) = 0.5*(1 + x^2 + y^2 + z^2)
 
 # ╔═╡ 9c95461e-4243-447e-b412-7814ca18da43
 R(x,y,z) = sqrt(x^2 + y^2 + z^2)
-
-# ╔═╡ 81df100b-0f36-42ee-a014-e9e1f7fb9cee
-test = [1,2,3,4,5]
-
-# ╔═╡ a9b6e622-f9ff-4e05-8c6b-5d05dcdcb876
-test[1]
 
 # ╔═╡ 8eb9d84d-e658-406e-8a2a-8a28cfee9b04
 function subseries(rec, T, dt; scale=2)
@@ -543,6 +490,16 @@ begin
 	(trc,xrc,yrc,zrc,ρrc) = blochs(solr_coarse)
 end
 
+# ╔═╡ 462bad0d-3706-435b-9918-b1b1c2b5e320
+md"""
+The root-mean-squared error between the two bayesian series is $(round(rms(yb[1:end-1], ybc), digits=5)).
+"""
+
+# ╔═╡ cad58760-29af-428d-b22f-ccb7488053a1
+md"""
+The root-mean-squared error between the two rouchon series is $(round(rms(yr[1:end-1], yrc), digits=5)).
+"""
+
 # ╔═╡ 226fa1ba-9cbc-4d30-82c9-80e215177fb0
 (tss0, Rss0) = subseries(Rs0, T, dt; scale=n0)
 
@@ -566,109 +523,6 @@ zc0
 
 # ╔═╡ e018009f-53d3-40b5-9cf9-6f26099f3504
 Rss0
-
-# ╔═╡ 9b2492db-94b4-470f-89f7-370ac8b5db26
-function rms(solve, sols, T, ρ0, H, J, C; n=1, dt=1e-4, kwargs...)
-	
-	"""
-	Arguments
-	
-	solve :: Function -- bayesian or rouchon
-	dt :: time-step of reference solutions
-	T :: time duration of reference solutions
-	sols :: reference solutions
-	n :: scale of coarse-graining
-	
-	Returns
-	
-	mean(rms_list) :: average rms between reference trajectories and corresponding
-	                  coarse-grained generated trajectories
-	
-	"""
-	
-	(tt, ρlist, recs) = sols
-	recs = collect(map(rec -> collect(rec[1]) , recs))
-	
-	rms_list = []
-	
-	for i in 1:length(recs)
-		
-		# look at one solution at a time
-		Rs = recs[i]
-		sol = (tt, ρlist[i], Rs)
-
-		# first, get bloch trajectories for each of the ρ in ρs, and coarse-grain
-		(ts,xs,ys,zs,rs) = map(ser -> subseries(ser, T, dt; scale=n)[2], blochs(sol))
-		
-		# coarse-grain the record
-		(_, Rsc) = subseries(Rs, T, dt; scale=n)
-		
-		# generate a trajectory from coarse-grained record, and get blochs
-		sol_coarse = solve(T, ρ0, H, J, C; dt=dt*n, dydt=[Rsc], kwargs...)
-		(_,xc,yc,zc,rc) = blochs(sol_coarse)
-		
-		# calculate rms error for each bloch coordinate, then take total
-		push!(rms_list, sqrt(rms(xs, xc)^2 + rms(ys, yc)^2 + rms(zs, zc)^2))
-		
-	end
-
-	# return average rms error
-	mean(rms_list)
-
-
-end
-
-# ╔═╡ 462bad0d-3706-435b-9918-b1b1c2b5e320
-md"""
-The root-mean-squared error between the two bayesian series is $(round(rms(yb[1:end-1], ybc), digits=5)).
-"""
-
-# ╔═╡ cad58760-29af-428d-b22f-ccb7488053a1
-md"""
-The root-mean-squared error between the two rouchon series is $(round(rms(yr[1:end-1], yrc), digits=5)).
-"""
-
-# ╔═╡ 98be356a-7afa-4387-a9ae-57542e808b1b
-begin
-	rms_bayes = []
-	rms_rouchon = []
-	times_bayes = []
-	times_rouchon = []
-	
-	for n in nlist
-		
-		rms_b = @timed rms(bayesian, ensb, T, ρ0, H, J, C; n=n, dt=dt)
-		rms_r = @timed rms(rouchon, ensr, T, ρ0, H, J, C; n=n, dt=dt)
-		push!(rms_bayes, rms_b.value)
-		push!(rms_rouchon, rms_r.value)
-		push!(times_bayes, rms_b.time)
-		push!(times_rouchon, rms_r.time)
-		
-	end
-end
-
-# ╔═╡ b13e4f3d-df37-4a75-8b00-2d0f768bd18e
-# function subseries(rec, T, dt; scale=2)
-# 	smooth_rec = real(coarse_grain(rec; n=scale))
-	
-# 	dtt = dt * scale
-# 	tts = collect(range(first(T), last(T), step=dtt))
-# 	subrec = subselect(smooth_rec; n=scale)
-	
-# 	if length(tts) > length(subrec)
-# 		push!(subrec,subrec[end])
-		
-# 	elseif length(tts) < length(subrec)
-# 		deleteat!(subrec,length(subrec))
-		
-# 	end
-	
-# 	(tts, subrec)
-	
-# end
-
-# ╔═╡ 3e2b91c7-97cb-4a59-96d5-01081f9d7a6f
-ylabel
 
 # ╔═╡ 37ac2cb1-c957-4182-be1f-29521aafbaa3
 # colorscheme
@@ -728,36 +582,6 @@ let
 	title("bayesian comparison, n = $n0")
 	legend()
 	gcf()
-	
-end
-
-# ╔═╡ 6163347e-7044-4ab7-8683-0a7186d9ac62
-let
-	close("all")
-	p = plot(nlist, rms_bayes, color=colors[2], marker="o", label="bayesian")
-	plot(nlist, rms_rouchon, color=colors[4], marker="o", label="rouchon")
-	ax = gca()
-	
-    xlabel("n")
-    ylabel("rms error")
-    title(string("average rms error, w/ reference ", L"$dt = $", dt*1000, " ns"))
-    legend()
-    gcf()
-	
-end
-
-# ╔═╡ 7aa70d12-915f-4eb6-8c1a-d4410abcc1a4
-let
-	close("all")
-	p = plot(nlist, times_bayes, color=colors[2], marker="o", label="bayesian")
-	plot(nlist, times_rouchon, color=colors[4], marker="o", label="rouchon")
-	ax = gca()
-	
-    xlabel("n")
-    ylabel("time (s)")
-    title(string("reconstruction time, w/ reference ", L"$dt = $", dt*1000, " ns"))
-    legend()
-    gcf()
 	
 end
 
@@ -1029,9 +853,6 @@ blue(text; title="Note") = Markdown.MD(Markdown.Admonition("note", title, [text]
 # ╔═╡ d7c1fd28-5780-4efd-b085-4f1f797a3f09
 hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]))
 
-# ╔═╡ 59cfb67b-443c-431f-bade-d3f188f08e84
-
-
 # ╔═╡ Cell order:
 # ╠═80ffb52c-a0dc-43d9-8282-e8acb51df4e0
 # ╟─595fc42b-943e-4a29-841a-cd36c90a2b55
@@ -1108,40 +929,19 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╠═a0cb40a2-aa44-405d-9fbb-bd5e59bed6b3
 # ╠═80fd7007-0a6e-4860-8174-40d4868fd71d
 # ╠═1dda6ec6-abc0-42d2-b6dc-53f6f7de31ba
-# ╟─5f98cd8f-2f26-4fd3-b7fb-a75ee4469875
-# ╟─a504e2af-58ab-4819-af4c-fdcecc0ad0b4
-# ╠═6cf47c1d-7c11-4bd9-a74d-73c6d314f691
-# ╠═25512701-e9d4-430e-8dd2-11716285d49b
-# ╟─14391721-a7be-4055-a6ca-7664b95ff23d
-# ╠═34029d43-1946-49fa-b7b6-ab3e06406f72
-# ╟─1aa035ea-5ced-459f-8fd9-82e37e592d12
-# ╟─f8854877-3cd7-4b4f-a534-a7269b153462
-# ╠═2da3a708-9bec-4207-889f-3632a3fa940b
-# ╠═98be356a-7afa-4387-a9ae-57542e808b1b
-# ╠═6163347e-7044-4ab7-8683-0a7186d9ac62
-# ╠═7aa70d12-915f-4eb6-8c1a-d4410abcc1a4
-# ╠═9b2492db-94b4-470f-89f7-370ac8b5db26
-# ╠═3db7293a-ef8f-4ec5-a894-3805514c2210
-# ╠═69f145d7-758b-479a-801a-483e1f823074
 # ╟─e7ffdfb4-622e-4248-a71b-907ea1cbb8a5
-# ╠═389364fb-cb2d-4a48-ba05-f7a222adba91
-# ╠═4070b2da-508d-467b-bacb-e3c4dacbe641
 # ╟─2b7aa36e-e64a-4839-875e-2c472763cb80
-# ╠═7baa7a79-090e-4318-982f-6c1982f82a58
-# ╠═078c6b8e-4b74-46dd-aebd-77acf392c2c9
+# ╟─7baa7a79-090e-4318-982f-6c1982f82a58
+# ╟─078c6b8e-4b74-46dd-aebd-77acf392c2c9
 # ╟─087145d6-81d4-44ef-b2a6-58c5126081ee
 # ╟─a9102fda-a602-45e2-ad7a-6fe192a7972a
 # ╟─9c95461e-4243-447e-b412-7814ca18da43
 # ╟─7672f11f-c5f2-4f5e-8ffc-3f7b45b4a322
 # ╟─08a6190e-aa1a-485f-bf30-e059e56048e5
 # ╟─4fd5a499-61e5-42ac-9d9d-38f461f59616
-# ╠═81df100b-0f36-42ee-a014-e9e1f7fb9cee
-# ╠═a9b6e622-f9ff-4e05-8c6b-5d05dcdcb876
-# ╠═8eb9d84d-e658-406e-8a2a-8a28cfee9b04
-# ╠═b13e4f3d-df37-4a75-8b00-2d0f768bd18e
-# ╠═82f2e0a1-11ee-4aa6-a63f-e6ca170a8116
-# ╠═5156e99d-7583-40fc-aa4f-73df81cbcedc
-# ╠═3e2b91c7-97cb-4a59-96d5-01081f9d7a6f
+# ╟─8eb9d84d-e658-406e-8a2a-8a28cfee9b04
+# ╟─82f2e0a1-11ee-4aa6-a63f-e6ca170a8116
+# ╟─5156e99d-7583-40fc-aa4f-73df81cbcedc
 # ╟─e0df4349-7035-4c41-995c-0c4d78069636
 # ╟─b3e6866b-6ab7-4f33-be5d-6e28da5f5fe7
 # ╟─b6577418-9cf1-4232-9fdb-fb6ebf6efd22
@@ -1151,4 +951,3 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─b966b51c-e9cd-4696-a3b1-15ecb9d3808e
 # ╟─f08bf969-d03f-47f9-9f5a-cddd18f8b109
 # ╟─d7c1fd28-5780-4efd-b085-4f1f797a3f09
-# ╠═59cfb67b-443c-431f-bade-d3f188f08e84
