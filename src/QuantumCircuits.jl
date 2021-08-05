@@ -167,12 +167,12 @@ end
 end
 
 
-function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[], td=0.0, sample=true, heterodyne=false)
+function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dydt=[], td=0.0, sample=true, heterodyne=false)
 	ts = range(first(tstep), last(tstep), step=dt)
 	feedback = applicable(H0, ts[1], [1])
 	return feedback ?
-			trajectory(meas(dt, H0, J0, C0; rdo=dy, ts=ts, sample=sample, het=heterodyne), ts, ρ, td; fn=fn, dt=dt, rsize=length(C0), het=heterodyne) :
-			trajectory(meas(dt, H0, J0, C0; rdo=dy, ts=ts, sample=sample, het=heterodyne), ts, ρ; fn=fn, dt=dt, rsize=length(C0), het=heterodyne)
+			trajectory(meas(dt, H0, J0, C0; rdo=dydt, ts=ts, sample=sample, het=heterodyne), ts, ρ, td; fn=fn, dt=dt, rsize=length(C0), het=heterodyne) :
+			trajectory(meas(dt, H0, J0, C0; rdo=dydt, ts=ts, sample=sample, het=heterodyne), ts, ρ; fn=fn, dt=dt, rsize=length(C0), het=heterodyne)
 
 end
 
@@ -281,7 +281,7 @@ dy :: record; default dy=[], i.e. simulation generates record time series.
 fn : ρ → Any :: eval function (e.g. to return expectation values instead of density matrices)
 """
 
-function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
+function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dydt=[])
     T = range(T0[1], T0[2], step=dt)
     Id = identityoperator(ρ.basis_l)
     Nn = length(T)
@@ -295,17 +295,16 @@ function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
     C = map(c -> length(methods(c)) > 0 ? c : t -> c, C0)
 
     # randomly sample noise time series for EACH stochastic collapse operator C
-    if length(dy) == 0
-        sim = true
+	dy = dydt*dt
+	sim = length(dy) == 0
+	if sim
         dist = Normal(0, sqrt(dt))
         dW=[]
         for c in 1:Nc
             push!(dW,rand(dist,Nn))
             push!(dy,zeros(Nn))
         end
-    else
-        sim = false
-    end
+	end
 
     for n in 1:Nn
         t = T[n]
@@ -319,7 +318,7 @@ function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
         end
 
         # initialize dy value, if simulation
-        if sim==true
+        if sim
             for c in 1:Nc
                 dy[c][n] = real(tr(C[c](t)*ρ + ρ*C[c](t)')*dt) + dW[c][n]
             end
@@ -328,7 +327,7 @@ function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
         # iterate over stochastic collapse operators C
         for c in 1:Nc
             M += C[c](t)*dy[c][n]
-            D += -C[c](t)*ρ*C[c](t)'*dt
+            # D += -C[c](t)*ρ*C[c](t)'*dt
 
             # nested sum
             for s in 1:Nc
@@ -342,8 +341,9 @@ function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dy=[])
         push!(ρs, fn(ρ))
     end
 
-    return (T,ρs,dy)
+    return (T,ρs,dy./dt)
 end
+
 
 """
     ensemble(solve, T, ρ0, H, J, C; <keyword arguments>)
@@ -368,27 +368,35 @@ N :: number of trajectories (default N=10)
 function ensemble(solve, T, ρ0, H, J, C; dt=1e-4, record=[], N=10, onstart=x->x, kwargs...)
     data = map(m -> begin
         onstart(m)
-        dy = length(record) >= m ? record[m] : []
-        tt, ρs, dy = solve(T, ρ0, H, J, C; dt=dt, dy=dy, kwargs...)
-        return (ρs, dy, tt)
+        dydt = length(record) >= m ? record[m] : []
+        tt, ρs, dydt = solve(T, ρ0, H, J, C; dt=dt, dydt=dydt, kwargs...)
+        return (ρs, dydt, tt)
     end, 1:N)
 
-    trajectories = collect(ρs for (ρs, dy) in data)
-    record = collect(dy for (ρs, dy) in data)
+    trajectories = collect(ρs for (ρs, dydt) in data)
+    record = collect(dydt for (ρs, dydt) in data)
     ts = data[1][3]
 
     return (ts, trajectories, record)
 end
 
-function coarse_grain(fine=[]; n=2)
+"""
+    coarse_grain(fine; <keyword arguments>)
+Argument: fine :: time-series to be coarse-grained
+Keyword Argument: n :: (default n=2), number of elements over which to smooth input time-series
+Returns: coarse :: smoothed time-series of the same length as fine, but having taken a
+					moving-average over n elements
+"""
+
+
+function coarse_grain(fine::Array; n=2)
     coarse = []
-    for i in 1:length(fine)
-        if i < n
-            push!(coarse, mean(fine[1:i]))
-        else
-            push!(coarse, mean(fine[i-(n-1):i]))
-        end
-    end
+	for i in 1:(n-1)
+		push!(coarse, mean(fine[1:i])) end
+
+	for i in n:length(fine)
+		push!(coarse, mean(fine[i-(n-1):i])) end
+
     coarse
 end
 
