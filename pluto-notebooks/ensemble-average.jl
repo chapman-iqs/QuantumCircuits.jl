@@ -98,6 +98,9 @@ begin
 	C0 = √(Γ0*η0)*σz;
 end
 
+# ╔═╡ 677b683b-ba7c-4b01-be5b-40ef97a075cd
+md" ##Measurement-free evolution"
+
 # ╔═╡ 1aa85cc1-32d2-4fa9-a29d-b042d4d4b94a
 md"""
 ## Quantum trajectories
@@ -114,10 +117,10 @@ In the following code, we use `QuantumCircuits.jl`'s `bayesian` function to simu
 # ╔═╡ 139565f9-0219-4939-a470-4252397dd6a0
 begin
 	ρ0 = dm(spindown(q)) # initial state
-	dt = 1e-2  # integration time-step
+	dt = 1e-3  # integration time-step
 	
 	Random.seed!(1)
-	sol1 = @time bayesian((0, 4τ0), ρ0, H0, [J0], [C0]; dt=dt)
+	sol1 = bayesian((0, 4τ0), ρ0, H0, [J0], [C0]; dt=dt)
 end
 
 # ╔═╡ 62170241-f050-4634-ad6a-8842ac96096c
@@ -126,7 +129,7 @@ md" This is one of infinitely many possible trajectories for the system. Let's g
 # ╔═╡ d1544d60-7de6-4f54-bffb-9ea0c3ddddc1
 begin
 	Random.seed!(1)
-	sol_ens = @time ensemble(bayesian, (0,4τ0), ρ0, H0, [J0], [C0]; dt=dt, N=500)
+	sol_ens = @time ensemble(rouchon, (0,4τ0), ρ0, H0, [J0], [C0]; dt=dt, N=500)
 end
 
 # ╔═╡ 4d42ca32-5348-48b5-8a24-eafa5b303690
@@ -196,7 +199,7 @@ md"""
 # ╔═╡ 09b609f6-a441-4ae2-aaff-66c1b8b6ffae
 begin
 	Random.seed!(1)
-	sol2 = @time bayesian((0, 4τ0), ρ0, H, [J], [C]; dt=dt)
+	sol2 = @time bayesian((0, 4τ0), ρ0, H, [J], [C]; dt=dt, heterodyne=true)
 	print()
 end
 
@@ -248,7 +251,7 @@ plot_solution(sol1; plot_title="Monitored Rabi Oscillation")
 
 # ╔═╡ cdbd897e-d689-42fa-9977-2b3169b29d08
 begin
-	title_string = "Monitored Rabi Oscillation; τ = $(τ), η = $(η)"
+	title_string = "bayesian heterodyne; τ = $(τ), η = $(η)"
 	plot_solution(sol2; plot_title=title_string)
 end
 
@@ -391,16 +394,17 @@ md"""
 # ╔═╡ Cell order:
 # ╠═4c45fe3e-cd69-11eb-20cd-7bfb98c040cf
 # ╟─377a3336-20bd-4baa-a033-af8bbc8668a8
-# ╠═7f1176b8-f6d3-4fd1-a23e-31710dcfff10
+# ╟─7f1176b8-f6d3-4fd1-a23e-31710dcfff10
 # ╟─982565bc-b137-4c10-8e13-5fe37be86823
 # ╠═4284173a-be05-4b58-a8d9-7189301344fd
-# ╠═85206c80-af15-4e1b-81e9-04bcb1083063
+# ╟─85206c80-af15-4e1b-81e9-04bcb1083063
 # ╟─629669ac-006a-4774-ae3e-67787bd0fa0a
-# ╠═259ed22f-b0c0-4fbe-9c6b-97a8730b6b14
+# ╟─259ed22f-b0c0-4fbe-9c6b-97a8730b6b14
 # ╟─bbbc92cd-8daa-4ed8-8bf0-d10461af4edd
 # ╠═b290f188-47f9-4af1-a5f0-11d99c29c1e3
 # ╟─5b48435b-da1b-4547-ac7c-72c95e1d07ff
 # ╠═99f2b351-877a-43c8-a508-d5688f92ae0c
+# ╠═677b683b-ba7c-4b01-be5b-40ef97a075cd
 # ╟─1aa85cc1-32d2-4fa9-a29d-b042d4d4b94a
 # ╠═139565f9-0219-4939-a470-4252397dd6a0
 # ╠═7218d350-0b14-4fed-b87e-65a9eb573780
@@ -417,7 +421,7 @@ md"""
 # ╟─6391d48d-4332-4209-bfe1-bec2e60e30c1
 # ╟─8638af64-25f9-4793-bc8b-5d22c3ef70fa
 # ╟─2db9b4c4-0256-4e29-990c-2ca3ee9c7ddf
-# ╠═5590bdc6-a943-4614-a24d-335512b0f73f
+# ╟─5590bdc6-a943-4614-a24d-335512b0f73f
 # ╟─4585fc96-cc13-476d-99d6-de839c4ec691
 # ╟─02ce38f3-f5e1-4fea-9e6e-b887baa548e7
 # ╠═09b609f6-a441-4ae2-aaff-66c1b8b6ffae

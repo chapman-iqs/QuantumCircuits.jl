@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.14.8
+# v0.15.1
 
 using Markdown
 using InteractiveUtils
@@ -15,12 +15,13 @@ end
 
 # ╔═╡ 7d43b95c-d3a4-11eb-16d3-47148906d472
 begin
+	cd("/Users/sachagreenfield/Desktop/GitHub/QuantumCircuits.jl")
+	import Pkg
+	Pkg.activate(".")
 	using Random
 	using Statistics
 	using PyPlot
-	using Distributions
-	using QuantumCircuits 	# note: for some reason, QuantumCircuits has to be 
-							# "used" last
+	using QuantumCircuits
 end
 
 # ╔═╡ be7d340a-4ef1-4727-a531-7d6e5c568ad9
@@ -58,23 +59,10 @@ md"""
 
 Consider basic two-level system evolution with Hamiltonian
 
-$\hat H = \frac{\Omega_R}2 \sigma_x,$
-with measurement decay rate $\Gamma_m = 1/2 \tau_m$.
-"""
-
-# ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
-md"""
-**include non-idealities?** $(@bind nonideal html"<input type=checkbox >")
-"""
-
-# ╔═╡ 89d7ed1a-653a-414d-9278-7fecf4068f09
-if nonideal
-	md"""There is also energy decay with rate $\Gamma_1 = 1/2 T_1$ and environmental 	dephasing with rate $\Gamma_2 = 1/T_2$."""
+$\hat H = \frac{\Omega_R}2 \hat \sigma_x,$
+with measurement decay rate $\Gamma_m = 1/2 \tau_m$. If non-idealities are included, there is also energy decay with rate $\Gamma_1 = 1/2 T_1$ and environmental dephasing with rate $\Gamma_2 = 1/T_2$.
 	
-else
-	md"""Environmental effects of energy decay and dephasing are considered 			negligible."""
-
-end
+"""
 
 # ╔═╡ 01f57775-b647-4fea-8e96-0b8c8ceeff05
 md" ### Parameters and operators"
@@ -84,7 +72,7 @@ begin
 	ΩR  = 2π # Rabi frequency
 	τm = 3.0 # Measurement collapse timescale
 	Γm = 1/(2τm) # Measurement dephasing rate
-	η = 0.3
+	η = 1
 	
 	T1 = 10 # energy decay time
 	T2 = 10 # environmental dephasing time
@@ -94,23 +82,16 @@ begin
 	Γ2 = 1/T2
 end
 
-# ╔═╡ eae605ed-f411-4f33-8066-bd8f01fc8a2d
-begin
-	H = ΩR*σx/2
-	J = nonideal ? [√Γ1*σm, √(Γ2+Γm)*σz] : [√Γm*σz] 
-	C = [√(Γm*η)*σz]
-end
-
-# ╔═╡ 8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
-title_str = nonideal ? "non-ideal Rabi oscillation" : "ideal Rabi oscillation";
-
 # ╔═╡ 09875de9-a56c-436f-a51e-fb5639d4f267
 begin
 	T = (0,4τm) # simulation duration
 	(x0,y0,z0) = (0., 0.3, 0.91)
 	ρ0 = DenseOperator(0.5*(id + x0*σx + y0*σy + z0*σz))
-	dt = 1e-3  # integration time-step
+	dt = 1e-3 # integration time-step
 end
+
+# ╔═╡ f877ba39-0665-4267-b2dd-a84d90d41e35
+expect(ρ0, ρ0)
 
 # ╔═╡ 436c2d6e-eed8-4313-9c0c-295a9a706344
 md" ## Simulation"
@@ -128,14 +109,31 @@ simulation type:  $(@bind sim_type html"<select><option value='bayesian'>bayesia
 # ╔═╡ de66a6c3-3180-4c54-a8da-5a9976f678e5
 md" Simulate using the `QuantumCircuits.jl`'s $sim_type method."
 
+# ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
+md"""
+**include non-idealities?** $(@bind nonideal html"<input type=checkbox >")
+"""
+
+# ╔═╡ eae605ed-f411-4f33-8066-bd8f01fc8a2d
+begin
+	H = ΩR*σx/2
+	J = nonideal ? [√Γ1*σm, √(Γ2+Γm*(1-η))*σz] : [√((1-η)*Γm)*σz] 
+	C = [√(Γm*η)*σz]
+end
+
 # ╔═╡ f28ef695-b27f-4c7c-8874-290d68e4e4ff
 md"Now, let's look at the records output from $sim_type. They are stored in the third element of `sol1`:"
 
 # ╔═╡ efcdb0b0-f054-4d04-a319-cd7fd6336183
 md"Plotted as a time series,"
 
-# ╔═╡ e25d6899-54c8-4cb7-a16e-92f653d36c34
-σσ = round(1/sqrt(dt), digits=4)
+# ╔═╡ c9661f73-7e76-4b60-a5cb-e0233519c492
+md"""
+In the continuum limit, the record takes the form 
+$r = z + \zeta$,
+where $z = \langle \hat \sigma_z \rangle$ is the Bloch coordinate being measured, and
+$\zeta \sim \mathcal{N}(0,\sqrt{\tau_m/dt})$ is a zero-mean Gaussian noise of standard deviation $\sqrt{\tau_m/dt}$. Note that `bayesian` and `rouchon` output records of different forms.
+"""
 
 # ╔═╡ 0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
 md" ### Check against hard-coded numerical simulation"
@@ -175,8 +173,8 @@ function simulate()
 		yn1 = yn/pn
 		zn1 = (zn*cosh(r*dt/τm) + sinh(r*dt/τm))/pn
 		
-		yn2 = yn1*cos(dt*ΩR) + zn1*sin(dt*ΩR)
-		zn2 = zn1*cos(dt*ΩR) - yn1*sin(dt*ΩR)
+		yn2 = yn1*cos(dt*ΩR) - zn1*sin(dt*ΩR)
+		zn2 = zn1*cos(dt*ΩR) + yn1*sin(dt*ΩR)
 		
 		if nonideal
 			
@@ -218,6 +216,12 @@ sqrt(1/dt)
 
 # ╔═╡ 3258df22-de38-4ab5-92b7-0a828bc32155
 md" ## Utilities "
+
+# ╔═╡ 8bdb2b60-b8b5-4793-a8d0-0a5d86879409
+Statistics
+
+# ╔═╡ 8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
+title_str = nonideal ? "non-ideal Rabi oscillation" : "ideal Rabi oscillation"
 
 # ╔═╡ 1e027b22-90e8-4b48-9eb9-2722e1aa612e
 expects = ρ -> collect(real(expect(ρ, s)) for s in [σx,σy,σz,ρ]) # ρ -> [<x>,<y>,<z>,<ρ>]
@@ -500,8 +504,6 @@ end
 
 # ╔═╡ df33032d-29df-41dc-aedb-6dde844f5f01
 begin
-	
-	
 	Random.seed!(1)
 	sol1 = bayes ? bayesian(T, ρ0, H, J, C; dt=dt, heterodyne=heterodyne) :
 					rouchon(T, ρ0, H, J, C; dt=dt)
@@ -514,10 +516,10 @@ plot_solution(sol1; plot_title=string(title_str, ", $sim_type"))
 sol1[3]
 
 # ╔═╡ 2f1d495c-a6b1-440c-acdc-ad89d36bc8f5
-plot_records(sol1; plot_title="record, general", labels=["bayesian"])
+plot_records(sol1; plot_title="record, general", labels=[sim_type])
 
 # ╔═╡ c49b0f3f-fe63-4086-bafb-2f81141e08a6
-record_histograms(sol1; labels=["bayesian"])
+record_histograms(sol1; labels=[sim_type])
 
 # ╔═╡ 1501fcfb-a944-4ef0-91c7-88f4fa63764e
 plot_solution(sol1; plot_title=string(title_str, ", $sim_type"))
@@ -525,26 +527,72 @@ plot_solution(sol1; plot_title=string(title_str, ", $sim_type"))
 # ╔═╡ 1ee7f64b-7be6-4bd6-a187-c35ec0426096
 record_histograms((tt,blochs,dys), sol1; labels=["hard-coded", "QuantumCircuits.jl"])
 
-# ╔═╡ ad752122-be08-4f4f-a5c5-a3999d6f5ac4
-if heterodyne
+# ╔═╡ ec829366-a768-47e6-aeb9-753b2f05c5ed
+if bayes && heterodyne
 	md"""
-Since we are doing a heterodyne measurement, $sim_type outputs one complex record. This can be understood as two independent real records, each with $\sigma = 1/\sqrt{2 dt}$ = $(round(σσ/sqrt(2),digits=4)) (**check this**)."""
-
-else
+	`bayesian` outputs a record of the form 
+	
+	$R \equiv \frac{r}{\sqrt{\tau_m}} = \frac{z}{\sqrt{\tau_m}} + \frac{dW}{dt},$
+	
+	where $dW \sim \mathcal N(0,\sqrt{dt})$ is a Wiener increment .
+	
+	Since we are doing a heterodyne measurement, $sim_type outputs one complex record. This can be understood as two independent real records, each with 
+	
+	$\sigma = 1/\sqrt{2 dt}$  
+	
+	= $(round(1/sqrt(2*dt), digits=4)) (**check this**)
+	
+	"""
+	
+elseif bayes && !heterodyne
+	
 	md"""
-	Since we are doing a homodyne measurement, $sim_type
-	outputs one real record of standard deviation  
+	`bayesian` outputs a record of the form 
+	
+	$R \equiv \frac{r}{\sqrt{\tau_m}} = \frac{z}{\sqrt{\tau_m}} + \frac{dW}{dt},$
+	
+	where $dW \sim \mathcal N(0,\sqrt{dt})$ is a Wiener increment .
+	
+	Since we are doing a homodyne measurement, `bayesian`
+	outputs one real record of standard deviation
 	
 	$\sigma = 1/\sqrt{dt}$ 
-	= $σσ.
+	
+	= $(round(1/sqrt(dt), digits=4)).
+	
 	"""
+		
+		
+	
+elseif !bayes && heterodyne
+	md"""
+	`rouchon` outputs a record of the form 
+	
+	$dy \equiv r \frac{dt}{\sqrt{\tau_m}} = z \frac{dt}{\sqrt{\tau_m}}+ dW,$
+	
+	where $dW \sim \mathcal N(0,\sqrt{dt})$ is a Wiener increment .
+	
+	Since we are doing a heterodyne measurement, `rouchon` outputs one complex record. This can be understood as two independent real records, each with $\sigma = \sqrt{dt/2}$ = $(round(sqrt(dt/2),digits=4)). (**check this**) **Currently rouchon does not implement heterodyne measurement.**
+	
+	"""
+	
+elseif !bayes && !heterodyne
+	md"""
+	`rouchon` outputs a record of the form 
+	
+	$dy \equiv r \frac{dt}{\sqrt{\tau_m}} = z \frac{dt}{\sqrt{\tau_m}}+ dW,$
+	
+	where $dW \sim \mathcal N(0,\sqrt{dt})$ is a Wiener increment .
+	
+	Since we are doing a homodyne measurement, `rouchon` outputs one real record of standard deviation 
+	
+	$\sigma = \sqrt{dt}$ 
+	
+	= $(round(sqrt(dt),digits=4)).
+	
+	"""
+	
 end
-
-
-# ╔═╡ e8b31676-5bcf-4ee0-87c9-5b88cc095155
-
-tan(md"I don't think the feedback code I wrote in `QuantumCircuits.jl` is working properly. I think when I am calling `dy` I am not using the form of dy that is already filled with the measured values...")
-
 
 # ╔═╡ 9391f19c-8c1d-4366-b76a-f304fe65ac0d
 blue(text; title="Note") = Markdown.MD(Markdown.Admonition("note", title, [text]))
@@ -552,43 +600,35 @@ blue(text; title="Note") = Markdown.MD(Markdown.Admonition("note", title, [text]
 # ╔═╡ 8387e17a-5672-4aed-9bee-130c8743375b
 hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]))
 
-# ╔═╡ 7c9bcaed-d611-4994-96b4-71ea86867808
-md"""
-!!! warning "Edit"
-
-	We need to use simple master equation API rather than `bayesian` here. I'm not sure this currently exists in `QuantumCircuits.jl`, but should probably be the `jump-no-jump` method. Or does `bayesian` automatically do that in the absence of measurement?
-"""
-
 # ╔═╡ Cell order:
 # ╠═7d43b95c-d3a4-11eb-16d3-47148906d472
 # ╟─be7d340a-4ef1-4727-a531-7d6e5c568ad9
 # ╟─e66e6723-16fe-4d8d-ae1f-f8237f8e8897
 # ╠═601a8b56-2f41-4b2c-9ea2-6b26a52b4e26
 # ╟─18c29abc-1f35-4b5a-bb27-a491c02cc98f
-# ╟─89d7ed1a-653a-414d-9278-7fecf4068f09
-# ╟─c5de979e-de3b-4a20-9fc4-649851a311fa
 # ╟─01f57775-b647-4fea-8e96-0b8c8ceeff05
 # ╠═c43c0486-d3fb-4457-b7ff-1927ec105d53
 # ╠═eae605ed-f411-4f33-8066-bd8f01fc8a2d
-# ╠═8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
 # ╠═09875de9-a56c-436f-a51e-fb5639d4f267
+# ╠═f877ba39-0665-4267-b2dd-a84d90d41e35
 # ╟─436c2d6e-eed8-4313-9c0c-295a9a706344
 # ╟─de66a6c3-3180-4c54-a8da-5a9976f678e5
 # ╟─dd8df49a-e3b7-48c4-87c5-5e31b6141a3e
-# ╟─d1184046-7dc1-45b7-898d-00e7a5837dd7
-# ╟─863696ee-6787-455b-9891-86865ca0c681
+# ╠═d1184046-7dc1-45b7-898d-00e7a5837dd7
+# ╟─c5de979e-de3b-4a20-9fc4-649851a311fa
+# ╠═863696ee-6787-455b-9891-86865ca0c681
 # ╠═df33032d-29df-41dc-aedb-6dde844f5f01
 # ╠═6473130f-484e-47a4-8fac-8ebd5733e4a1
 # ╟─f28ef695-b27f-4c7c-8874-290d68e4e4ff
 # ╠═5fc6f4f2-202e-404d-be38-3d2626df1ed0
 # ╟─efcdb0b0-f054-4d04-a319-cd7fd6336183
 # ╠═2f1d495c-a6b1-440c-acdc-ad89d36bc8f5
-# ╟─ad752122-be08-4f4f-a5c5-a3999d6f5ac4
-# ╟─e25d6899-54c8-4cb7-a16e-92f653d36c34
+# ╟─c9661f73-7e76-4b60-a5cb-e0233519c492
+# ╠═ec829366-a768-47e6-aeb9-753b2f05c5ed
 # ╠═c49b0f3f-fe63-4086-bafb-2f81141e08a6
 # ╟─0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
 # ╟─cfb94e57-06a7-4a52-b42e-7db995582670
-# ╟─5022461e-6138-4ff6-9292-2820a8ec18d1
+# ╠═5022461e-6138-4ff6-9292-2820a8ec18d1
 # ╠═c06f5b1c-20e0-47a8-b80f-3d6f5353c880
 # ╠═9f08d06c-437e-47a9-9969-0297c12dbac8
 # ╠═1501fcfb-a944-4ef0-91c7-88f4fa63764e
@@ -596,15 +636,16 @@ md"""
 # ╠═865e5929-db0d-4eb9-8f40-9dcdb8bd6c30
 # ╠═dd5439f2-5572-4584-b39c-9f18e07a2165
 # ╠═1ee7f64b-7be6-4bd6-a187-c35ec0426096
-# ╟─e8b31676-5bcf-4ee0-87c9-5b88cc095155
 # ╟─3258df22-de38-4ab5-92b7-0a828bc32155
+# ╠═8bdb2b60-b8b5-4793-a8d0-0a5d86879409
+# ╟─8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
 # ╟─1e027b22-90e8-4b48-9eb9-2722e1aa612e
 # ╟─1bd31808-2978-4168-a40b-831abd09b69a
 # ╟─fbcefdcc-0db5-4676-8ca8-386501f6a790
 # ╟─4f018bfb-c03d-410b-bec6-1b7070bb309f
 # ╟─5779b365-b466-4fad-90b7-e47df73ea707
-# ╟─8d8b700b-bb00-4279-b64e-eb06bd3cb986
-# ╠═92affe90-b18d-4f7a-8da0-f708dc0f7bb8
+# ╠═8d8b700b-bb00-4279-b64e-eb06bd3cb986
+# ╟─92affe90-b18d-4f7a-8da0-f708dc0f7bb8
 # ╟─eef64e1d-bf71-4ef9-9e1a-d683cd7be679
 # ╟─32aa09f0-3493-4360-814c-0c3928029c94
 # ╟─daef5add-d4b1-4c68-b273-f5c386f511d0
@@ -614,4 +655,3 @@ md"""
 # ╠═5cac0386-f12d-47a9-8e3e-8b0e1b131216
 # ╟─9391f19c-8c1d-4366-b76a-f304fe65ac0d
 # ╟─8387e17a-5672-4aed-9bee-130c8743375b
-# ╟─7c9bcaed-d611-4994-96b4-71ea86867808

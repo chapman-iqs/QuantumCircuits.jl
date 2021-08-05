@@ -1,17 +1,19 @@
 ### A Pluto.jl notebook ###
-# v0.14.8
+# v0.15.1
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ 7d43b95c-d3a4-11eb-16d3-47148906d472
 begin
+	cd("/Users/sachagreenfield/Desktop/GitHub/QuantumCircuits.jl")
+	import Pkg
+	Pkg.activate(".")
 	using Random
 	using Statistics
-	using PyPlot
 	using Distributions
-	using QuantumCircuits 	# note: for some reason, QuantumCircuits has to be 
-							# "used" last
+	using PyPlot
+	using QuantumCircuits
 end
 
 # ╔═╡ be7d340a-4ef1-4727-a531-7d6e5c568ad9
