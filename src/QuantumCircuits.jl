@@ -8,6 +8,20 @@ using Distributions
 δ(i,j) = Int(i == j);
 sand(a,b) = a*b*a';
 
+
+
+function bayesian(tstep::Tuple, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[], td=0.0, sample=true, heterodyne=false)
+	ts = range(first(tstep), last(tstep), step=dt)
+	feedback = applicable(H0, ts[1], [1])
+	rsize = length(Ctups)
+
+	return feedback ?
+			trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, sample=sample, het=heterodyne), ts, ρ, td; fn=fn, rsize=rsize, dt=dt, het=heterodyne) :
+			trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, sample=sample, het=heterodyne), ts, ρ; fn=fn, rsize=rsize, dt=dt, het=heterodyne)
+
+end
+
+
 """
     meas(dt, H; mclist=Tuple{Operator,Time,Float64}[],
                       mflist=Tuple{Function,Time,Float64}[],
@@ -48,9 +62,10 @@ and small dt.  [Physical Review A **92**, 052306 (2015)]
   - (t, ρ(t)::Operator) -> (ρ(t+dt)::Operator, rlist::Float64...)
 
 """
-function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=true, het=false)
+function meas(dt::Float64, H0, J0::Array, Ctups; rdo=Array[], ts=[], sample=true, het=false)
 
 	feedback = applicable(H0, ts[1], [1])
+	sim = (length(rdo) == 0)
 
 	# Assemble readout generating functions and Kraus operators
 	ros = Function[]
@@ -58,13 +73,14 @@ function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=
 
 	H = length(methods(H0)) > 0 ? H0 : t -> H0 # if H0 is already a function of t, set H = H0; if H0 = const, define h(t) a constant function of t
 	J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0) # same, for each element of J0
-	C = map(c -> length(methods(c)) > 0 ? c : t -> c, C0) # same, for each element of C0
+	C = []
+	for (c, τm, η) in Ctups
+		push!(C, length(methods(c)) > 0 ? (c,τm,η) : (t -> c,τm,η) ) end
 
-	for c in C
-		if length(rdo) == 0 && sample
-			push!(ros, readout(dt, c, het))
-		end
-		push!(gks, gausskraus(dt, c))
+	for ctup in C
+		if sim && sample
+			push!(ros, readout(dt, ctup, het)) end
+		push!(gks, gausskraus(dt, ctup))
 	end
 
 	L = lind(dt, H, clist=[], flist=J)
@@ -73,7 +89,7 @@ function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=
 	if feedback
 
 			(t, ρ, rd) -> begin
-				rs = length(rdo) > 0 ? map(ro -> ro[argmin(abs.(ts .- t))], rdo) : map(ro -> ro(t, ρ), ros)
+				rs = sim ? map(ro -> ro(t, ρ), ros) : map(ro -> ro[argmin(abs.(ts .- t))], rdo)
 				gs = map(z -> z[2](t, z[1]), zip(rs, gks))
 				ρ1 = foldr(sand, gs; init=ρ);
 				return (L(t, ρ1/tr(ρ1), rd), rs)
@@ -85,7 +101,7 @@ function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=
 			# for each experimental record (corresponding to each observable), get the value closest to t
 			# else, for each simulated record, get the value corresponding to (t,ρ)
 			# gives an array (?) of readout values for each observable, at time t.
-			rs = length(rdo) > 0 ? map(ro -> ro[argmin(abs.(ts .- t))], rdo) : map(ro -> ro(t, ρ), ros)
+			rs = sim ? map(ro -> ro(t, ρ), ros) : map(ro -> ro[argmin(abs.(ts .- t))], rdo)
 
 			# for each pair in `zip(rs, gks)`, get the gausskraus operator `z[2]` as a function of `(t,z[1])`,
 			# where `z[1]` is the readout value at `t`
@@ -101,80 +117,74 @@ function meas(dt::Float64, H0, J0::Array, C0::Array; rdo=Array[], ts=[], sample=
 end
 
 
-function readout(dt, m::Function, het::Bool)
-    dist = Normal(0, sqrt(dt))
+function readout(dt, (c, τm, η), het::Bool)
+    dist = Normal(0, sqrt(τm/dt))
 	return het ?
-			(t, ρ) -> expect(ρ, m(t)) + (rand(dist) + im*rand(dist))/(dt * √2) :
-			(t, ρ) -> expect(ρ, m(t)) + rand(dist)/dt
+			(t, ρ) -> expect(ρ, c(t)) + (rand(dist) + im*rand(dist))/√2 :
+			(t, ρ) -> real(expect(ρ, c(t)) + rand(dist))
 end
 
-function gausskraus(dt, m::Function)
-    v = dt/2
-    (t, r) -> let mo = (m(t) .+ m(t)') / 2
+function gausskraus(dt, (c, τm, η))
+    (t, r) -> let mo = (c(t) .+ c(t)') / 2
                         mo2 = mo^2 / 2
-                        exp(DenseOperator(conj(r) * v * m(t) - v*mo2)) end
+                        exp(DenseOperator((conj(r) * c(t) - mo2) * dt/(2τm*η))) end
 end
 
-@inline function trajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, dt=1e-4, rsize=1, het=false)
 
-    # init
+@inline function trajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, rsize=1, dt=1e-4, het=false)
+
+	# init
     ρ0 = ρ
-    dy0 = het ? [0.0im for i in 1:rsize] : [0.0 for i in 1:rsize]
+    r0 = het ? [0.0im for i in 1:rsize] : [0.0 for i in 1:rsize]
     ρs = [fn(ρ0)]
-    dy = [dy0]
+    recs = [r0]
 
 	for t in ts[2:end]
 		 ρ, rs = inc(t, ρ)
 		 push!(ρs, fn(ρ))
-		 push!(dy, rs)
+		 push!(recs, rs)
  	end
 
-    dy = collect(eachrow(hcat(dy...)))
+    recs = collect(eachrow(hcat(recs...)))
 
-    return (ts, ρs, dy)
+    return (ts, ρs, recs)
 end
 
-@inline function trajectory(inc::Function, ts, ρ, td; fn::Function=ρ->ρ, dt=1e-4, rsize=1, het=false)
+@inline function trajectory(inc::Function, ts, ρ, td; fn::Function=ρ->ρ, rsize=1, dt=1e-4, het=false)
 
 	# init
-    ρ0 = ρ
-    dy0 = het ? [0.0im for i in 1:rsize] : [0.0 for i in 1:rsize]
-    ρs = [fn(ρ0)]
-    dy = [dy0]
+	ρ0 = ρ
+	r0 = het ? [0.0im for i in 1:rsize] : [0.0 for i in 1:rsize]
+	ρs = [fn(ρ0)]
+	recs = [r0]
 
 	# find time-delay in terms of indices
 	td_index = argmin(abs.(ts .- td))
 
 	# before feedback delay is turned on
 	for t in ts[2:td_index]
-		rd = dy0
+		rd = r0
 		ρ, rs = inc(t, ρ, rd)
 		push!(ρs, fn(ρ))
-		push!(dy, rs)
+		push!(recs, rs)
 	end
 
+	# after feedback buffer is filled
 	for i in (td_index + 1):length(ts)
 		t = ts[i]
-		rd = dy[i - td_index]
+		rd = recs[i - td_index]
         ρ, rs = inc(t, ρ, rd)
         push!(ρs, fn(ρ))
-        push!(dy, rs)
+        push!(recs, rs)
     end
 
-    dy = collect(eachrow(hcat(dy...)))
+    recs = collect(eachrow(hcat(recs...)))
 
-    return (ts, ρs, dy)
+    return (ts, ρs, recs)
 end
 
 
-function bayesian(tstep::Tuple, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dydt=[], td=0.0, sample=true, heterodyne=false)
-	ts = range(first(tstep), last(tstep), step=dt)
-	feedback = applicable(H0, ts[1], [1])
-	return feedback ?
-			trajectory(meas(dt, H0, J0, C0; rdo=dydt, ts=ts, sample=sample, het=heterodyne), ts, ρ, td; fn=fn, dt=dt, rsize=length(C0), het=heterodyne) :
-			trajectory(meas(dt, H0, J0, C0; rdo=dydt, ts=ts, sample=sample, het=heterodyne), ts, ρ; fn=fn, dt=dt, rsize=length(C0), het=heterodyne)
 
-end
 
 # Jump-nojump Lindblad propagator
 """

@@ -64,33 +64,6 @@ and $\hat \sigma_x$ and $\hat \sigma_y$ are the corresponding Pauli operators. T
 # ╔═╡ 01f57775-b647-4fea-8e96-0b8c8ceeff05
 md" ### Parameters and operators"
 
-# ╔═╡ 55080dfb-9c65-4ee2-9810-6ef262a4ca59
-funlist = [t -> t, t -> t^2, 5]
-
-# ╔═╡ 2cc60716-8149-443a-82b3-ee01a6857226
-begin
-	updatedlist = []
-	for f in funlist
-		if length(methods(f)) > 0
-			push!(updatedlist, f)
-		else
-			push!(updatedlist, t -> f) end
-		 # push!(updatedlist, t -> f) 
-	end
-	
-end
-	
-
-# ╔═╡ 20758f0a-f233-4a0b-b662-9b79c9bb1fd7
-begin
-	results = []
-	for f in updatedlist
-		push!(results, f(3))
-	end
-	results
-end
-	
-
 # ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
 ideal = true
 
@@ -132,7 +105,7 @@ begin
 	# Hamiltonian defined at a certain time t, 
 	# takes in readout r in some observable with time delay td
 	H0(t, r::Array) = (Δ0 + Δ1*r[1])*σx/2 
-	C = [√Γm*σz]
+	C = [(σz, τm, η)]
 	J = ideal ? [√Γm*σz] : [√Γ1*σm, √(Γ2+Γm)*σz]
 end
 
@@ -167,9 +140,8 @@ where $dW \sim \mathcal N(0,\sqrt{dt})$ is a Wiener increment. The hard-coded si
 
 # ╔═╡ 304d5f8b-8870-46e9-a293-2df0d2c2895b
 begin
-	(tb, ρb, dydtb) = sol1
-	Rb = collect(dydtb[1]) # record output from bayesian
-	rs = Rb*sqrt(τm) # rescale record for input into hard-coded simulation
+	(tb, ρb, rs) = sol1
+	rs = collect(rs[1]) # record output from bayesian
 end
 
 # ╔═╡ 0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
@@ -181,15 +153,11 @@ function blochevolve(; rs=[])
 	sim = (length(rs) == 0)
 	
 	ts = range(first(T), last(T), step=dt)
-	(dy, xs, ys, zs) = map(i -> [], 1:4)
 	
 	# first time step
-	xn = x0
-	yn = y0
-	zn = z0
-	push!(xs, xn)
-	push!(ys, yn)
-	push!(zs, zn)
+	(xn, yn, zn) = (x0, y0, z0)	
+	(xs, ys, zs) = ([x0], [y0], [z0])
+
 	
 	if sim
 		dist = Normal(0, sqrt(τm/dt))
@@ -490,7 +458,7 @@ function plot_timeseries(ttseries...; plot_title="time series", xlab=L"$t$", yla
 end
 
 # ╔═╡ 369aa5bf-b76c-444f-aa48-4c7403b1e92c
-plot_timeseries((tb, Rb); plot_title="bayesian simulated record")
+plot_timeseries((tb, rs); plot_title="bayesian simulated record")
 
 # ╔═╡ c541a88e-0a5a-48d2-b490-91ef7500dbe5
 # Plotting
@@ -602,9 +570,6 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─18c29abc-1f35-4b5a-bb27-a491c02cc98f
 # ╟─01f57775-b647-4fea-8e96-0b8c8ceeff05
 # ╠═eae605ed-f411-4f33-8066-bd8f01fc8a2d
-# ╠═55080dfb-9c65-4ee2-9810-6ef262a4ca59
-# ╠═2cc60716-8149-443a-82b3-ee01a6857226
-# ╠═20758f0a-f233-4a0b-b662-9b79c9bb1fd7
 # ╠═ee541c05-c187-4b43-a803-2255e254efe5
 # ╠═c5de979e-de3b-4a20-9fc4-649851a311fa
 # ╟─8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
