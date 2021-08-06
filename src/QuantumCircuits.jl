@@ -125,9 +125,12 @@ function readout(dt, (c, τm, η), het::Bool)
 end
 
 function gausskraus(dt, (c, τm, η))
-    (t, r) -> let mo = (c(t) .+ c(t)') / 2
+	v = dt / 2
+    (t, r) -> let m(t) = c(t) / sqrt(2τm * η)
+						R = r / sqrt(τm)
+						mo = (m(t) .+ m(t)') / 2
                         mo2 = mo^2 / 2
-                        exp(DenseOperator((conj(r) * c(t) - mo2) * dt/(2τm*η))) end
+                        exp(DenseOperator((conj(R) * m(t) - mo2) * v)) end
 end
 
 
