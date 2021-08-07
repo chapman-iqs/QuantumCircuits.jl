@@ -122,11 +122,11 @@ begin
 	ΩR  = 2π # Rabi frequency
 	τm = 3.0 # Measurement collapse timescale
 	Γm = 1/(2τm) # Measurement dephasing rate
-	η = 0.3
+	η = 0.05
 	
 	H = ΩR*σx/2
 	J = [√((1-η)*Γm)*σz] 
-	C = [√(Γm*η)*σz]
+	C = [(σz, τm, η)]
 	
 	T = (0,4τm) # simulation duration
 	ρ0 = dm(spinup(q))
@@ -139,21 +139,20 @@ md" ###### Simulation: Bayesian"
 # ╔═╡ 0c3770b6-02b2-46af-a875-cea82999f88f
 begin
 	Random.seed!(10)
-	solb = bayesian(T, ρ0, H, J, C; dt=dt)
+	solb = bayesian(T, ρ0, H, J, []; dt=dt)
 end
 
 # ╔═╡ eb250fd3-7c43-4f75-ab9e-6f7ae0035ad3
 begin
-	(tt, ρs, dys) = solb
-	Rs = collect(dys[1]) # record output from bayesian
-	dy = Rs*dt # rescale record for input into rouchon
+	(tt, ρs, rs) = solb
+	rs = collect(rs[1]) # record output from bayesian
 end
 
 # ╔═╡ 75f1cc94-5222-42d5-8c0e-ceedb3c53d3b
 md" ###### Simulation: Rouchon"
 
 # ╔═╡ bdf4c000-2845-4e2f-baf6-0d1161e477e3
-solr = rouchon(T, ρ0, H, J, C; dt=dt, dydt=[Rs])
+solr = rouchon(T, ρ0, H, J, []; dt=dt)
 
 # ╔═╡ b6c73eea-d17c-49d4-a091-be10c8134718
 md" ### Bayesian filtering "

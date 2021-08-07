@@ -10,8 +10,8 @@ sand(a,b) = a*b*a';
 
 
 
-function bayesian(tstep::Tuple, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[], td=0.0, sample=true, heterodyne=false)
-	ts = range(first(tstep), last(tstep), step=dt)
+function bayesian(T::Tuple, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[], td=0.0, sample=true, heterodyne=false)
+	ts = range(first(T), last(T), step=dt)
 	feedback = applicable(H0, ts[1], [1])
 	rsize = length(Ctups)
 
@@ -294,67 +294,83 @@ dy :: record; default dy=[], i.e. simulation generates record time series.
 fn : ρ → Any :: eval function (e.g. to return expectation values instead of density matrices)
 """
 
-function rouchon(T0, ρ, H0, J0::Array, C0::Array; fn=ρ->ρ, dt=1e-4, dydt=[])
-    T = range(T0[1], T0[2], step=dt)
+function rouchon(T::Tuple, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
+    ts = range(first(T), last(T), step=dt)
     Id = identityoperator(ρ.basis_l)
-    Nn = length(T)
+    Nt = length(ts)
     Nj = length(J0)
-    Nc = length(C0)
+    Nc = length(Ctups)
 
     ρs = Any[]
 
     H = length(methods(H0)) > 0 ? H0 : t -> H0
     J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0)
-    C = map(c -> length(methods(c)) > 0 ? c : t -> c, C0)
-
-    # randomly sample noise time series for EACH stochastic collapse operator C
-	dy = dydt*dt
-	sim = length(dy) == 0
-	if sim
-        dist = Normal(0, sqrt(dt))
-        dW=[]
-        for c in 1:Nc
-            push!(dW,rand(dist,Nn))
-            push!(dy,zeros(Nn))
-        end
+	C = []
+	for (i, (c, τm, η)) in enumerate(Ctups)
+		Γm = sqrt(2τm * η)
+		push!(C, length(methods(c)) > 0 ? (c / Γm) : (t -> c / Γm))	
+		# push!(C, length(methods(c)) > 0 ? (c,τm,η) : (t -> c,τm,η))
 	end
 
-    for n in 1:Nn
-        t = T[n]
-        M = Id - im*H(t)*dt
+	# sample / prepare dy array
+	sim = (length(r) == 0)
+	dy = []
+	dW = []
+	dist = Normal(0, dt)
+
+	for (i, (c, τm, η)) in enumerate(Ctups)
+		if sim # randomly sample noise time series for EACH stochastic collapse operator C
+			push!(dW, rand(dist, Nt))
+			push!(dy, zeros(Nt))
+		else
+			push!(dy, r[i] .* dt ./ sqrt(τm))	end
+	end
+
+
+    for n in 1:Nt
+        t = ts[n]
+        M = Id - im * H(t) * dt
 
         # iterate over deterministic collapse operators J
         D = 0Id
         for j in 1:Nj
-            M += -0.5J[j](t)'*J[j](t)*dt
-            D += J[j](t)*ρ*J[j](t)'*dt
+            M += -0.5J[j](t)' * J[j](t) * dt
+            D += J[j](t) * ρ * J[j](t)' * dt
         end
 
         # initialize dy value, if simulation
         if sim
             for c in 1:Nc
-                dy[c][n] = real(tr(C[c](t)*ρ + ρ*C[c](t)')*dt) + dW[c][n]
+                dy[c][n] = real(tr(C[c](t) * ρ + ρ * C[c](t)') * dt) + dW[c][n]
             end
         end
 
         # iterate over stochastic collapse operators C
         for c in 1:Nc
-            M += C[c](t)*dy[c][n]
+            M += C[c](t) * dy[c][n]
             # D += -C[c](t)*ρ*C[c](t)'*dt
 
             # nested sum
             for s in 1:Nc
-                M += 0.5C[c](t)*C[s](t)*(dy[c][n]*dy[s][n] - δ(c,s)*dt)
+                M += 0.5C[c](t) * C[s](t) * (dy[c][n] * dy[s][n] - δ(c,s) * dt)
             end
         end
 
         # update ρ according to Rouchon method
         ρ = M*ρ*M' + D
-        ρ = ρ/tr(ρ)
+        ρ = ρ / tr(ρ)
         push!(ρs, fn(ρ))
     end
 
-    return (T,ρs,dy./dt)
+	# revert to r (normalized) version of record
+	if sim
+		for (i, (c, τm, η)) in enumerate(Ctups)
+			push!(r, dy[i] .* sqrt(τm) ./ dt)
+		end
+	end
+
+
+    return (ts, ρs, r)
 end
 
 

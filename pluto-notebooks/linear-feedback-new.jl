@@ -64,9 +64,6 @@ and $\hat \sigma_x$ and $\hat \sigma_y$ are the corresponding Pauli operators. T
 # ╔═╡ 01f57775-b647-4fea-8e96-0b8c8ceeff05
 md" ### Parameters and operators"
 
-# ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
-ideal = true
-
 # ╔═╡ eae605ed-f411-4f33-8066-bd8f01fc8a2d
 begin
 	# all times given in μs
@@ -74,20 +71,20 @@ begin
 	(x0,y0,z0) = (0., 0.3, 0.91)
 	ρ0 = DenseOperator(0.5*(id + x0*σx + y0*σy + z0*σz))
 	
-	dt = 0.5e-4  # integration time-step
+	dt = 1e-4  # integration time-step
 	td = 0 # 200e-3 # delay time
-	η = 0.41 # measurement efficiency
+	η = 0.1 # 0.41 # measurement efficiency
 	
 	θs = 3π/10 # target angle on Bloch sphere
 	
-	τm = 0.2 # measurement time
+	τm = 3.0 # 0.2 # measurement time
 	Γm = 1/(2τm*η) # measurement rate
 	T = (0, 4τm) # simulation duration
 	
 	Rs = 0.64 # radius of target
 	
 	# feedback drive parameters
-	Δ0 = ideal ? -sin(2θs)/(4τm) : -sin(2θs)/(4τm*Rs^2) 
+	Δ0 = 2π # ideal ? -sin(2θs)/(4τm) : -sin(2θs)/(4τm*Rs^2) 
 	Δ1 = 0 # ideal ? sin(θs)/τm : sin(θs)/(τm*Rs)
 		
 	T1 = 40 # energy decay time
@@ -99,6 +96,9 @@ begin
 
 	
 end
+
+# ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
+ideal = true
 
 # ╔═╡ ee541c05-c187-4b43-a803-2255e254efe5
 begin

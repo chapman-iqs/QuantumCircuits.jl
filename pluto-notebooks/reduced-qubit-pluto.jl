@@ -97,8 +97,9 @@ H0 = ΩR0*σy/2
 
 # ╔═╡ b290f188-47f9-4af1-a5f0-11d99c29c1e3
 begin
-	J0 = √Γ0*σz
-	C0 = √(Γ0*η0)*σz;
+	J0 = [√Γ0*σz]
+	C0 = [(σz, τ0, η0)];
+	Cr = [√(Γ0/η0)*σz];
 end
 
 # ╔═╡ 677b683b-ba7c-4b01-be5b-40ef97a075cd
@@ -123,7 +124,7 @@ begin
 	dt = 1e-3  # integration time-step
 	
 	Random.seed!(1)
-	sol1 = rouchon((0, 4τ0), ρ0, H0, [J0], [C0]; dt=dt)
+	sol1 = bayesian((0, 4τ0), ρ0, H0, J0, C0; dt=dt)
 end
 
 # ╔═╡ 62170241-f050-4634-ad6a-8842ac96096c
