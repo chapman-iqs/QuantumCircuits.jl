@@ -64,6 +64,9 @@ and $\hat \sigma_x$ and $\hat \sigma_y$ are the corresponding Pauli operators. T
 # ╔═╡ 01f57775-b647-4fea-8e96-0b8c8ceeff05
 md" ### Parameters and operators"
 
+# ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
+ideal = true
+
 # ╔═╡ eae605ed-f411-4f33-8066-bd8f01fc8a2d
 begin
 	# all times given in μs
@@ -71,21 +74,23 @@ begin
 	(x0,y0,z0) = (0., 0.3, 0.91)
 	ρ0 = DenseOperator(0.5*(id + x0*σx + y0*σy + z0*σz))
 	
-	dt = 1e-4  # integration time-step
+	dt = 0.5e-3  # integration time-step
 	td = 0 # 200e-3 # delay time
-	η = 0.1 # 0.41 # measurement efficiency
+	η = 1 # 0.41 # measurement efficiency
 	
 	θs = 3π/10 # target angle on Bloch sphere
+	ϕ = π # fixes plane of oscillations
+	σϕ = cos(ϕ)*σx + sin(ϕ)*σy
 	
-	τm = 3.0 # 0.2 # measurement time
-	Γm = 1/(2τm*η) # measurement rate
-	T = (0, 4τm) # simulation duration
+	τm = 0.2 # measurement time
+	Γm = 1/(2τm) # measurement rate
+	T = (0, 2) #(0, 10τm) # simulation duration
 	
-	Rs = 0.64 # radius of target
+	Rs = 1 # 0.64 # radius of target
 	
 	# feedback drive parameters
-	Δ0 = 2π # ideal ? -sin(2θs)/(4τm) : -sin(2θs)/(4τm*Rs^2) 
-	Δ1 = 0 # ideal ? sin(θs)/τm : sin(θs)/(τm*Rs)
+	Δ0 = ideal ? -sin(2θs)/(4τm) : -sin(2θs)/(4τm*Rs^2) 
+	Δ1 = ideal ? sin(θs)/τm : sin(θs)/(τm*Rs)
 		
 	T1 = 40 # energy decay time
 	T2 = 60 # environmental dephasing time
@@ -97,16 +102,13 @@ begin
 	
 end
 
-# ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
-ideal = true
-
 # ╔═╡ ee541c05-c187-4b43-a803-2255e254efe5
 begin
 	# Hamiltonian defined at a certain time t, 
 	# takes in readout r in some observable with time delay td
-	H0(t, r::Array) = (Δ0 + Δ1*r[1])*σx/2 
+	H0(t, r::Array) = (Δ0 + Δ1*r[1])*σϕ/2 
 	C = [(σz, τm, η)]
-	J = ideal ? [√Γm*σz] : [√Γ1*σm, √(Γ2+Γm)*σz]
+	J = ideal ? [√((1-η)*Γm)*σz] : [√((1-η) * Γm) * σz, √Γ1*σm, √Γ2*σz] 
 end
 
 # ╔═╡ 8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
@@ -120,38 +122,13 @@ end
 # ╔═╡ 436c2d6e-eed8-4313-9c0c-295a9a706344
 md" ## Simulation"
 
-# ╔═╡ 40a10a59-80a1-4b21-b6e1-d1a774330dd0
-md" ### `QuantumCircuits.jl` general implementation"
-
-# ╔═╡ df33032d-29df-41dc-aedb-6dde844f5f01
-begin
-	Random.seed!(1)
-	sol1 = bayesian(T, ρ0, H0, J, C; dt=dt, td=td, heterodyne=false)
-end
-
-# ╔═╡ 95ebf3b0-afbf-4dfe-869e-f0428fe49d63
-md"""
-Note `bayesian` outputs a record of the form
-```math
-R \equiv \frac{r}{\sqrt{\tau_m}} = \frac{z}{\sqrt{\tau_m}} + \frac{dW}{dt},
-```
-where $dW \sim \mathcal N(0,\sqrt{dt})$ is a Wiener increment. The hard-coded simulation that follows will take the normalized record $r$ as input, so this is calculated below.
-"""
-
-# ╔═╡ 304d5f8b-8870-46e9-a293-2df0d2c2895b
-begin
-	(tb, ρb, rs) = sol1
-	rs = collect(rs[1]) # record output from bayesian
-end
-
 # ╔═╡ 0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
-md" ### Check against hard-coded numerical simulation"
+md" ### Bloch simulation from Patti et al."
 
 # ╔═╡ 5022461e-6138-4ff6-9292-2820a8ec18d1
 function blochevolve(; rs=[])
 	# readout distribution
 	sim = (length(rs) == 0)
-	
 	ts = range(first(T), last(T), step=dt)
 	
 	# first time step
@@ -178,7 +155,7 @@ function blochevolve(; rs=[])
 		xn1 = xn/pn
 		yn1 = yn/pn
 		zn1 = (zn*cosh(r*dt/τm) + sinh(r*dt/τm))/pn
-		Δ = -(Δ0 + Δ1*r) # the Rabi-drive depends on the readout (instantaneous here)
+		Δ = (Δ0 + Δ1*r) # the Rabi-drive depends on the readout (instantaneous here)
 		
 		yn2 = yn1*cos(dt*Δ) + zn1*sin(dt*Δ)
 		zn2 = zn1*cos(dt*Δ) - yn1*sin(dt*Δ)
@@ -187,12 +164,13 @@ function blochevolve(; rs=[])
 			xn = xn1*exp(-dt*(1-η)/(2τm*η))
 			yn = yn2*exp(-dt*(1-η)/(2τm*η))
 			zn = zn2
-		
+
 		else 
 			xn = xn1*exp(-dt/(2T1) - dt/T2 - dt*(1-η)/(2τm*η))
 			yn = yn2*exp(-dt/(2T1) - dt/T2 - dt*(1-η)/(2τm*η))
-			zn = zn2*exp(-dt/T1) - (1 - exp(-dt/T1)) end
-		
+			zn = zn2*exp(-dt/T1) - (1 - exp(-dt/T1)) 
+		end
+
 		# store values
 		push!(xs, xn)
 		push!(ys, yn)
@@ -201,19 +179,35 @@ function blochevolve(; rs=[])
 
 	end
 	
-	return ts, [rs], (xs, ys, zs)
+	ρs = 0.5*(1 .+ xs.^2 + ys.^2 + zs.^2)
+	
+	return ts, [rs], (xs, ys, zs, ρs)
 	
 	
 end
 
 # ╔═╡ d614159d-c5d4-49cb-9320-115e2b9d59d3
-(tt, r, bloch) = blochevolve(rs=rs)
+begin
+	Random.seed!(1)
+	(tt, r, (xx, yy, zz, rr)) = blochevolve()
+	tt = collect(tt)
+	r = r[1]
+end
 
-# ╔═╡ edc0f4eb-755d-4ff3-bd70-634515d50e06
-r[1]==rs
+# ╔═╡ 40a10a59-80a1-4b21-b6e1-d1a774330dd0
+md" ### `QuantumCircuits.jl` general implementation"
+
+# ╔═╡ df33032d-29df-41dc-aedb-6dde844f5f01
+solb = bayesian(T, ρ0, H0, J, C; dt=dt, td=td, heterodyne=false, r=[r])
+
+# ╔═╡ fd9a642b-12e8-4330-bf39-d67efdce35cb
+(_, trajectories, record) = ensemble(bayesian, T, ρ0, H0, J, C; dt=dt, N=100)
 
 # ╔═╡ a74e31c5-a582-4240-a54f-cd09a3b0b720
 fit(Normal, convert(Array{Float64}, dys[1]))
+
+# ╔═╡ 2b750028-1c81-4180-a59a-02bcbd331c7a
+μ = mean(zz)
 
 # ╔═╡ e2acd522-2add-4aff-ad49-30d7ab0c8292
 σ = sqrt(τm/dt)
@@ -245,6 +239,16 @@ end
 # ╔═╡ 0fa84d7f-59ff-4a27-821f-2114464129a6
 expects = ρ -> collect(real(expect(ρ, s)) for s in [σx,σy,σz,ρ]) # ρ -> [<x>,<y>,<z>,<ρ>]
 
+# ╔═╡ a589fb58-fc99-493d-bca4-fd21dc6a78d8
+function blochs(ρs::Array)
+	# Get Bloch components
+	evs0 = expects.(ρs);
+	xx,yy,zz,rr = [map(x -> x[i], evs0) for i in 1:4];
+
+	(xx, yy, zz, rr)
+	
+end
+
 # ╔═╡ c9a3a847-d910-4433-926a-d1bfd012f248
 function blochs(sol)
 	(tt, ρt, _) = sol
@@ -257,14 +261,29 @@ function blochs(sol)
 	
 end
 
+# ╔═╡ 304d5f8b-8870-46e9-a293-2df0d2c2895b
+begin
+	(ts, ρb, rs) = solb
+	rs = collect(rs[1]) # record output from bayesian
+	(tb, xb, yb, zb, rb) = blochs(solb)
+end
+
+# ╔═╡ 6294f81c-ea9d-4500-9751-b45f8a348639
+begin
+	ztar = [Rs*cos(θs) for i in 1:length(tb)]
+	ytar = [Rs*sin(θs) for i in 1:length(tb)]
+	xtar = zeros(length(tb))
+	
+end
+
+# ╔═╡ 4be08527-fce2-4d1e-9255-b6663193f7cb
+avgbloch(trajectories, A) = mean(collect(map(traj -> real(expect.(traj, [A for i in 1:length(ts)])), trajectories)))
+
+# ╔═╡ 6170d744-b16d-49f4-bbd4-d54e9df87037
+(xavg, yavg, zavg) = map(A -> avgbloch(trajectories, A), [σx, σy, σz])
+
 # ╔═╡ d6734dcc-e5ee-4523-9970-b46542b1372a
 plot_records((tt,blochs,dys); plot_title="record, hard-coded")
-
-# ╔═╡ 0ed59062-6696-4a94-b85b-baa7c93df3a1
-(xx,yy,zz) = blochs
-
-# ╔═╡ 2b750028-1c81-4180-a59a-02bcbd331c7a
-μ = mean(zz)
 
 # ╔═╡ 739984d0-91a6-45d1-bd2a-0561bfb3e4d5
 purity(x,y,z) = 0.5*(1 + x^2 + y^2 + z^2)
@@ -322,12 +341,6 @@ function plot_solution(sol; plot_title="Rabi Oscillation")
 
 end
 
-# ╔═╡ 6473130f-484e-47a4-8fac-8ebd5733e4a1
-plot_solution(sol1; plot_title=title_str)
-
-# ╔═╡ 604d9542-155f-4c29-a5ba-5997ac586ef5
-plot_solution(sol1; plot_title=title_str)
-
 # ╔═╡ b41b51dc-0763-4ad0-90e7-8e54fcc7d916
 # Plotting
 function plot_blochs((tt, blochs); plot_title="Rabi Oscillation")
@@ -350,9 +363,6 @@ function plot_blochs((tt, blochs); plot_title="Rabi Oscillation")
     legend()
     gcf()
 end
-
-# ╔═╡ 0d026ed1-10ed-4d5a-b897-6a3e91a78c1e
-plot_blochs((tt,bloch); plot_title=title_str_hc)
 
 # ╔═╡ 6afc5215-2b51-425f-aecc-b20e15d5128a
 function record_histograms(records...; plot_title="record histogram", labels=[]::Array, density=false)
@@ -399,7 +409,7 @@ end
 
 # ╔═╡ a1c5942e-4c27-4cbb-8fa8-b47d9449c523
 # Plotting
-function plot_timeseries(tt::Array, series...; plot_title="time series", xlab=L"$t$", ylab="arbitrary units", labels=[]::Array, colorpairs=false, kwargs...)
+function plot_timeseries(tt::Array, series...; plot_title="time series", xlab=L"$t$", ylab="arbitrary units", labels=[]::Array, ylims=[], colorpairs=false, kwargs...)
 	close("all")
 	ser_colors(i) = colorpairs ? colors[i] : colors[2i]
 	
@@ -409,6 +419,8 @@ function plot_timeseries(tt::Array, series...; plot_title="time series", xlab=L"
 	ser = series[1]
 	p = plot(tt, ser, color=ser_colors(1), label=label(1), kwargs...)
 	ax = gca()
+	if length(ylims) > 0
+		ax.set_ylim(ylims)  end
 	
 	if length(series) > 1
 		
@@ -456,6 +468,18 @@ function plot_timeseries(ttseries...; plot_title="time series", xlab=L"$t$", yla
     gcf()
 	
 end
+
+# ╔═╡ 0d026ed1-10ed-4d5a-b897-6a3e91a78c1e
+plot_timeseries(tt, xtar, xx, ytar, yy, ztar, zz, rr; plot_title="hard-coded evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr ", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
+
+# ╔═╡ adb06221-1db3-46e0-b147-c0ae7bbcce30
+plot_timeseries((tt, r); plot_title="blochevolve simulated record")
+
+# ╔═╡ d9ad9721-18d5-452e-ad34-4037973b20cb
+plot_timeseries(tb, xtar, xb, ytar, yb, ztar, zb, rb; plot_title="bayesian evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
+
+# ╔═╡ 7b9a1dd8-7aa9-4a71-b942-177d05224886
+plot_timeseries(tb, xtar, xavg, ytar, yavg, ztar, zavg, rb; plot_title="average bayesian evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
 
 # ╔═╡ 369aa5bf-b76c-444f-aa48-4c7403b1e92c
 plot_timeseries((tb, rs); plot_title="bayesian simulated record")
@@ -570,25 +594,27 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─18c29abc-1f35-4b5a-bb27-a491c02cc98f
 # ╟─01f57775-b647-4fea-8e96-0b8c8ceeff05
 # ╠═eae605ed-f411-4f33-8066-bd8f01fc8a2d
+# ╠═6294f81c-ea9d-4500-9751-b45f8a348639
 # ╠═ee541c05-c187-4b43-a803-2255e254efe5
 # ╠═c5de979e-de3b-4a20-9fc4-649851a311fa
 # ╟─8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
 # ╟─436c2d6e-eed8-4313-9c0c-295a9a706344
-# ╟─40a10a59-80a1-4b21-b6e1-d1a774330dd0
-# ╠═df33032d-29df-41dc-aedb-6dde844f5f01
-# ╟─95ebf3b0-afbf-4dfe-869e-f0428fe49d63
-# ╠═304d5f8b-8870-46e9-a293-2df0d2c2895b
-# ╠═6473130f-484e-47a4-8fac-8ebd5733e4a1
-# ╠═369aa5bf-b76c-444f-aa48-4c7403b1e92c
-# ╟─0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
+# ╠═0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
 # ╠═5022461e-6138-4ff6-9292-2820a8ec18d1
-# ╠═edc0f4eb-755d-4ff3-bd70-634515d50e06
 # ╠═d614159d-c5d4-49cb-9320-115e2b9d59d3
 # ╠═0d026ed1-10ed-4d5a-b897-6a3e91a78c1e
-# ╠═604d9542-155f-4c29-a5ba-5997ac586ef5
+# ╠═adb06221-1db3-46e0-b147-c0ae7bbcce30
+# ╟─40a10a59-80a1-4b21-b6e1-d1a774330dd0
+# ╠═df33032d-29df-41dc-aedb-6dde844f5f01
+# ╠═304d5f8b-8870-46e9-a293-2df0d2c2895b
+# ╠═d9ad9721-18d5-452e-ad34-4037973b20cb
+# ╠═fd9a642b-12e8-4330-bf39-d67efdce35cb
+# ╠═4be08527-fce2-4d1e-9255-b6663193f7cb
+# ╠═6170d744-b16d-49f4-bbd4-d54e9df87037
+# ╠═7b9a1dd8-7aa9-4a71-b942-177d05224886
+# ╠═369aa5bf-b76c-444f-aa48-4c7403b1e92c
 # ╠═d6734dcc-e5ee-4523-9970-b46542b1372a
 # ╠═a74e31c5-a582-4240-a54f-cd09a3b0b720
-# ╠═0ed59062-6696-4a94-b85b-baa7c93df3a1
 # ╠═2b750028-1c81-4180-a59a-02bcbd331c7a
 # ╠═e2acd522-2add-4aff-ad49-30d7ab0c8292
 # ╠═65d5b466-263b-48d4-a0ce-7ecf32bcacbb
@@ -599,15 +625,16 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─e8b31676-5bcf-4ee0-87c9-5b88cc095155
 # ╟─3258df22-de38-4ab5-92b7-0a828bc32155
 # ╟─e59530ae-7f27-4836-a352-9d0a08d62451
-# ╟─c9a3a847-d910-4433-926a-d1bfd012f248
-# ╟─0fa84d7f-59ff-4a27-821f-2114464129a6
+# ╠═a589fb58-fc99-493d-bca4-fd21dc6a78d8
+# ╠═c9a3a847-d910-4433-926a-d1bfd012f248
+# ╠═0fa84d7f-59ff-4a27-821f-2114464129a6
 # ╟─739984d0-91a6-45d1-bd2a-0561bfb3e4d5
 # ╟─8f40ea32-6f75-4119-b90c-c72b7749360f
-# ╟─69855c0b-c7e3-4e6c-bffa-7d5e47a55b1b
+# ╠═69855c0b-c7e3-4e6c-bffa-7d5e47a55b1b
 # ╟─b41b51dc-0763-4ad0-90e7-8e54fcc7d916
 # ╟─6afc5215-2b51-425f-aecc-b20e15d5128a
 # ╟─8bb2e4ea-e480-4e03-be07-24a5c4d6c780
-# ╟─a1c5942e-4c27-4cbb-8fa8-b47d9449c523
+# ╠═a1c5942e-4c27-4cbb-8fa8-b47d9449c523
 # ╟─aec50388-2682-44cd-aab8-6474cc863f31
 # ╟─c541a88e-0a5a-48d2-b490-91ef7500dbe5
 # ╟─c0c7bcf3-3a8e-489d-9bda-4113764190ec

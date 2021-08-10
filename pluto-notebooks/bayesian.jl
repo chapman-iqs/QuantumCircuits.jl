@@ -122,7 +122,7 @@ begin
 	ΩR  = 2π # Rabi frequency
 	τm = 3.0 # Measurement collapse timescale
 	Γm = 1/(2τm) # Measurement dephasing rate
-	η = 0.05
+	η = 0.3
 	
 	H = ΩR*σx/2
 	J = [√((1-η)*Γm)*σz] 
@@ -139,7 +139,7 @@ md" ###### Simulation: Bayesian"
 # ╔═╡ 0c3770b6-02b2-46af-a875-cea82999f88f
 begin
 	Random.seed!(10)
-	solb = bayesian(T, ρ0, H, J, []; dt=dt)
+	solb = bayesian(T, ρ0, H, J, C; dt=dt)
 end
 
 # ╔═╡ eb250fd3-7c43-4f75-ab9e-6f7ae0035ad3
@@ -152,7 +152,7 @@ end
 md" ###### Simulation: Rouchon"
 
 # ╔═╡ bdf4c000-2845-4e2f-baf6-0d1161e477e3
-solr = rouchon(T, ρ0, H, J, []; dt=dt)
+solr = rouchon(T, ρ0, H, J, C; dt=dt, r=[rs])
 
 # ╔═╡ b6c73eea-d17c-49d4-a091-be10c8134718
 md" ### Bayesian filtering "

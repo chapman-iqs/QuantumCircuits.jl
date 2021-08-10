@@ -126,7 +126,7 @@ end
 
 function gausskraus(dt, (c, τm, η))
 	v = dt / 2
-    (t, r) -> let m(t) = c(t) / sqrt(2τm * η)
+    (t, r) -> let m(t) = c(t) * sqrt(η / (2τm))
 						R = r / sqrt(τm)
 						mo = (m(t) .+ m(t)') / 2
                         mo2 = mo^2 / 2
@@ -294,7 +294,7 @@ dy :: record; default dy=[], i.e. simulation generates record time series.
 fn : ρ → Any :: eval function (e.g. to return expectation values instead of density matrices)
 """
 
-function rouchon(T::Tuple, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
+function rouchon(T, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
     ts = range(first(T), last(T), step=dt)
     Id = identityoperator(ρ.basis_l)
     Nt = length(ts)
@@ -307,8 +307,8 @@ function rouchon(T::Tuple, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
     J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0)
 	C = []
 	for (i, (c, τm, η)) in enumerate(Ctups)
-		Γm = sqrt(2τm * η)
-		push!(C, length(methods(c)) > 0 ? (c / Γm) : (t -> c / Γm))	
+		m = c * sqrt(η / 2τm)
+		push!(C, length(methods(m)) > 0 ? m : (t -> m))
 		# push!(C, length(methods(c)) > 0 ? (c,τm,η) : (t -> c,τm,η))
 	end
 
@@ -397,13 +397,13 @@ N :: number of trajectories (default N=10)
 function ensemble(solve, T, ρ0, H, J, C; dt=1e-4, record=[], N=10, onstart=x->x, kwargs...)
     data = map(m -> begin
         onstart(m)
-        dydt = length(record) >= m ? record[m] : []
-        tt, ρs, dydt = solve(T, ρ0, H, J, C; dt=dt, dydt=dydt, kwargs...)
-        return (ρs, dydt, tt)
+        r = length(record) >= m ? record[m] : []
+        tt, ρs, r = solve(T, ρ0, H, J, C; dt=dt, r=r, kwargs...)
+        return (ρs, r, tt)
     end, 1:N)
 
-    trajectories = collect(ρs for (ρs, dydt) in data)
-    record = collect(dydt for (ρs, dydt) in data)
+    trajectories = collect(ρs for (ρs, r) in data)
+    record = collect(r for (ρs, r) in data)
     ts = data[1][3]
 
     return (ts, trajectories, record)
