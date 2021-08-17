@@ -16,7 +16,7 @@ function bayesian(T::Tuple, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[], 
 	rsize = length(Ctups)
 
 	return feedback ?
-			trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, sample=sample, het=heterodyne), ts, ρ, td; fn=fn, rsize=rsize, dt=dt, het=heterodyne) :
+			trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, td=td, sample=sample, het=heterodyne), ts, ρ, td; fn=fn, rsize=rsize, dt=dt, het=heterodyne) :
 			trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, sample=sample, het=heterodyne), ts, ρ; fn=fn, rsize=rsize, dt=dt, het=heterodyne)
 
 end
@@ -62,7 +62,7 @@ and small dt.  [Physical Review A **92**, 052306 (2015)]
   - (t, ρ(t)::Operator) -> (ρ(t+dt)::Operator, rlist::Float64...)
 
 """
-function meas(dt::Float64, H0, J0::Array, Ctups; rdo=Array[], ts=[], sample=true, het=false)
+function meas(dt::Float64, H0, J0::Array, Ctups; rdo=Array[], ts=[], td=0, sample=true, het=false)
 
 	feedback = applicable(H0, ts[1], [1])
 	sim = (length(rdo) == 0)
@@ -92,7 +92,7 @@ function meas(dt::Float64, H0, J0::Array, Ctups; rdo=Array[], ts=[], sample=true
 				rs = sim ? map(ro -> ro(t, ρ), ros) : map(ro -> ro[argmin(abs.(ts .- t))], rdo)
 				gs = map(z -> z[2](t, z[1]), zip(rs, gks))
 				ρ1 = foldr(sand, gs; init=ρ);
-				return (L(t, ρ1/tr(ρ1), rd), rs)
+				return td == 0 ? (L(t, ρ1/tr(ρ1), rs), rs) : (L(t, ρ1/tr(ρ1), rd), rs)
 			end
 	else
 	# Increment that samples each readout, applies all Kraus operators
@@ -127,7 +127,7 @@ end
 function gausskraus(dt, (c, τm, η))
 	v = dt / 2
     (t, r) -> let m(t) = c(t) * sqrt(η / (2τm))
-						R = r / sqrt(τm)
+						R = r / sqrt(τm/2)
 						mo = (m(t) .+ m(t)') / 2
                         mo2 = mo^2 / 2
                         exp(DenseOperator((conj(R) * m(t) - mo2) * v)) end
@@ -175,7 +175,8 @@ end
 	# after feedback buffer is filled
 	for i in (td_index + 1):length(ts)
 		t = ts[i]
-		rd = recs[i - td_index]
+		# rd uses r0 as placeholder if no time delay, since current readout will come from inc
+		rd = td_index == 1 ? r0 : recs[i - (td_index - 1)]
         ρ, rs = inc(t, ρ, rd)
         push!(ρs, fn(ρ))
         push!(recs, rs)

@@ -17,11 +17,11 @@ begin
 end
 
 # ╔═╡ be7d340a-4ef1-4727-a531-7d6e5c568ad9
-md" # Linear feedback stabilization"
+md" # Feedback: matrix exponentiation"
 
 # ╔═╡ b9bd68f2-df48-4072-8269-1898b7cf1b15
 md"""
-In this interactive notebook, we implement the linear feedback stabilization described in [1].
+In this interactive notebook, I test the feedback matrix exponentiation code to compare to bloch equations and verify that `QuantumCircuits.jl` is working as expected.
 """
 
 # ╔═╡ e66e6723-16fe-4d8d-ae1f-f8237f8e8897
@@ -64,6 +64,9 @@ and $\hat \sigma_x$ and $\hat \sigma_y$ are the corresponding Pauli operators. T
 # ╔═╡ 01f57775-b647-4fea-8e96-0b8c8ceeff05
 md" ### Parameters and operators"
 
+# ╔═╡ 071641ac-a5a8-4d37-b531-88b1e083416c
+md" #### Bloch simulation (generate record)"
+
 # ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
 ideal = true
 
@@ -85,7 +88,7 @@ begin
 	τm =  0.2 # measurement time
 	Γm = 1/(2τm) # measurement rate
 	T = (0, 4) #(0, 10τm) # simulation duration
-	tlist = range(first(T), last(T), step=dt) # list of times
+	td = 0 # time delay for feedback
 	
 	Rs = 1 # 0.64 # radius of target
 	
@@ -105,10 +108,10 @@ end
 
 # ╔═╡ 6294f81c-ea9d-4500-9751-b45f8a348639
 begin
-	ztar = [Rs*cos(θs) for i in 1:length(tlist)]
-	ytar = [Rs*sin(θs) for i in 1:length(tlist)]
-	xtar = zeros(length(tlist))
-	
+	ts = range(first(T), last(T), step=dt)
+	ztar = [Rs*cos(θs) for i in 1:length(ts)]
+	ytar = [Rs*sin(θs) for i in 1:length(ts)]
+	xtar = zeros(length(ts))
 end
 
 # ╔═╡ ee541c05-c187-4b43-a803-2255e254efe5
@@ -117,8 +120,8 @@ begin
 	# takes in readout r in some observable with time delay td
 	H0(t, r::Array) = (Δ0 + Δ1*r[1])*σϕ/2
 	# H0 = Δ0*σϕ/2 
-	C = [(σz, τm, η)]
-	J = [√((1-η)*Γm)*σz]
+	C0 = [(σz, τm, η)]
+	J0 = [√((1-η)*Γm)*σz]
 	#J = ideal ? [√((1-η)*Γm)*σz] : [√((1-η) * Γm) * σz, √Γ1*σm, √Γ2*σz] 
 end
 
@@ -130,13 +133,10 @@ begin
 	
 end
 
-# ╔═╡ 436c2d6e-eed8-4313-9c0c-295a9a706344
-md" ## Simulation"
-
-# ╔═╡ 0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
+# ╔═╡ ea558387-68dc-4dff-ae04-f7a877379510
 md" ### Bloch simulation from Patti et al."
 
-# ╔═╡ 5022461e-6138-4ff6-9292-2820a8ec18d1
+# ╔═╡ f2892559-e623-46d4-9ff2-f04fd9253734
 function blochevolve(; rs=[])
 	# readout distribution
 	sim = (length(rs) == 0)
@@ -192,60 +192,398 @@ function blochevolve(; rs=[])
 	
 	ρs = 0.5*(1 .+ xs.^2 + ys.^2 + zs.^2)
 	
-	return ts, [rs], (xs, ys, zs, ρs)
+	return ts, rs, (xs, ys, zs, ρs)
 	
 	
 end
 
-# ╔═╡ d614159d-c5d4-49cb-9320-115e2b9d59d3
+# ╔═╡ 4487690f-349c-461c-a5b1-f9a6be9897bd
 begin
 	Random.seed!(2)
 	(tt, r, (xx, yy, zz, rr)) = blochevolve()
 	tt = collect(tt)
-	r = r[1]
 end
 
-# ╔═╡ 40a10a59-80a1-4b21-b6e1-d1a774330dd0
-md" ### `QuantumCircuits.jl` general implementation"
+# ╔═╡ 15613717-87c1-45d8-b194-1c7b1085d4f7
+md" ### Matrix exponentiation"
 
-# ╔═╡ df33032d-29df-41dc-aedb-6dde844f5f01
-solb = bayesian(T, ρ0, H0, J, C; dt=dt, td=td, heterodyne=false, r=[r])
+# ╔═╡ 840beeea-a731-4a38-b36b-e2ab848147d9
+begin
+	H = length(methods(H0)) > 0 ? H0 : t -> H0
+	J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0) # same, for each element of J0
+	C = []
+	for (c, τm, η) in C0
+		push!(C, length(methods(c)) > 0 ? (c,τm,η) : (t -> c,τm,η) ) end
+end
 
-# ╔═╡ f6fc3c8a-6f77-4b0b-8383-3c49601a393b
-testvar = nothing
+# ╔═╡ bc8e8a5f-6476-402f-9cc6-0af722a6c033
+ρ0.data
 
-# ╔═╡ acfa5eef-4bd5-4157-80ae-5199855df99a
-nothing
+# ╔═╡ e7353f43-899d-4899-86b5-1303676c07ec
+ρ0.data[2,2]
 
-# ╔═╡ 24ee48da-8a38-47e1-9020-cf8a03ceab24
-Δ0
+# ╔═╡ 2c1f165f-cabd-4599-afc7-348799754f5e
+function expevolve(; rs=[])
+	# readout distribution
+	sim = (length(rs) == 0)
+	ts = range(first(T), last(T), step=dt)
+	
+	# first time step
+	(xn, yn, zn) = (x0, y0, z0)	
+	(xs, ys, zs, ρs) = ([x0], [y0], [z0], [tr(ρ0*ρ0)])
+	ρ = ρ0
 
-# ╔═╡ fd9a642b-12e8-4330-bf39-d67efdce35cb
-# (_, trajectories, record) = ensemble(bayesian, T, ρ0, H0, J, C; dt=dt, N=100)
+	
+	if sim
+		dist = Normal(0, sqrt(τm/dt))
+		push!(rs, 0) end
+		
 
-# ╔═╡ a74e31c5-a582-4240-a54f-cd09a3b0b720
-fit(Normal, convert(Array{Float64}, dys[1]))
+	for i in 2:length(ts)
+		
+		# sample from distribution		
+		if sim
+			r = zn + rand(dist)
+			push!(rs, r)
+		else
+			r = rs[i] end
+		
+ 		# update equations
+		
+		# measurement backaction
+		M = exp(r' * dt * DenseOperator(σz) / 2τm)
+		ρ = M * ρ * M'
+		ρ = ρ / tr(ρ) 
+		
+		# Hamiltonian evolution
+		H = (Δ0 + Δ1*r) * σϕ/2
+		U = exp(-im * dt * DenseOperator(H))
+		ρ = U * ρ * U'
+		
+		# Lindblad evolution
+		if ideal
+			ρ.data[1,2] = ρ.data[1,2] * exp(-dt * (1 - η)/(2τm * η))
+			ρ.data[2,1] = ρ.data[2,1] * exp(-dt * (1 - η)/(2τm * η))
+			
+		else
+			ρ.data[1,2] = ρ.data[1,2] * exp(-dt/2T1 - dt/T2 - dt*(1 - η)/(2τm * η))
+			ρ.data[2,1] = ρ.data[2,1] * exp(-dt/2T1 - dt/T2 - dt*(1 - η)/(2τm * η))
+		end
+		
+		# store values
+		push!(xs, real(expect(ρ, σx)))
+		push!(ys, real(expect(ρ, σy)))
+		push!(zs, real(expect(ρ, σz)))
+		push!(ρs, tr(ρ*ρ))
+		
 
-# ╔═╡ 2b750028-1c81-4180-a59a-02bcbd331c7a
-μ = mean(zz)
+	end
+	
+	return ts, rs, (xs, ys, zs, ρs)
+	
+	
+end
 
-# ╔═╡ e2acd522-2add-4aff-ad49-30d7ab0c8292
-σ = sqrt(τm/dt)
+# ╔═╡ 90511e52-c343-490b-81b2-1502c546e16b
+(_, _, (xxe, yye, zze, rre)) = expevolve(rs=r)
 
-# ╔═╡ 65d5b466-263b-48d4-a0ce-7ecf32bcacbb
-fit(Normal, convert(Array{Float64}, sol1[3][1]))
+# ╔═╡ 9e731ac9-e11c-427b-9569-4a925799042a
+md" #### Testing QuantumCircuits.jl functions"
 
-# ╔═╡ 9fa0d08b-d902-4850-ba87-546ab58a108f
-plot_records(sol1; plot_title="record, general")
+# ╔═╡ ab459f70-e40a-499f-bd05-248270d7d4dd
+md" ##### Functions"
 
-# ╔═╡ 7d41021a-5ee7-4f06-97c0-4efd490b88f9
-dif = abs.(sol1[3] - dys)
+# ╔═╡ 2487c71c-2d00-4ac0-8cec-7d3f2e80ab3e
+function lind(dt; clist=QOp[], flist=Function[])
+    ns = Function[]
+    ds = Function[]
+    # Construct operations for constant operators
+    if isempty(clist)
+        push!(ns, (t, ρ) -> ρ)
+    else
+        Id = identityoperator(first(clist).basis_l)
+        op = DenseOperator(Id - dt * mapreduce(a -> a' * a, +, clist))
+        n::Operator = SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
+        push!(ns, (t, ρ) -> n * ρ * n)
+        push!(ds, (t, ρ) -> mapreduce(a -> a * ρ * a', +, clist) * dt)
+    end
+    # Construct operations for time-dependent operators
+    if isempty(flist)
+        push!(ns, (t, ρ) -> ρ)
+    else
+        function nf(t)
+            Id = identityoperator(first(flist)(t).basis_l)
+            op = DenseOperator(Id - dt * mapreduce(a -> a(t)' * a(t), +, flist))
+            return SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
+        end
+        push!(ns, (t, ρ) -> nf(t) * ρ * nf(t))
+        push!(ds, (t, ρ) -> mapreduce(a -> a(t) * ρ * a(t)', +, flist) * dt)
+    end
+    push!(ds, (t, ρ) -> last(ns)(t, first(ns)(t, ρ)))
+    (t, ρ) -> mapreduce(f -> f(t, ρ), +, ds)
+end
 
-# ╔═╡ 79604a4e-372e-4a89-b377-46ac6b284078
-collect(sol1[3][1])
+# ╔═╡ 8c422daa-fbf6-4a9e-83ce-3523948aa069
+function ham(dt, H::Operator)
 
-# ╔═╡ d37aaf9e-1d74-47ed-a0a4-0876316f6cda
-dys[1]
+    u::Operator = exp( -im * dt * DenseOperator(H))
+    ut = u'
+    (t, ρ::Operator) -> u * ρ * ut
+
+end
+
+# ╔═╡ 3ad727fc-6955-4bb9-b9bf-cb34b63c8c70
+function ham(dt, H::Function)
+	feedback = applicable(H, 1, [1])
+	return feedback ?
+			(t, state, r) -> ham(dt, H(t, r))(t, state) :
+			(t, state) -> ham(dt, H(t))(t, state)
+end
+
+# ╔═╡ 5d2e29b6-3f8e-4e66-9442-c325af182a6a
+function lind(dt, H; clist=QOp[], flist=Function[])
+
+	feedback = applicable(H, 1, 1)
+    # Rely on Hamiltonian to specify type of H
+    h = ham(dt, H)
+    # Apply Hamiltonian first, then the Lindblad increment
+	return feedback ?
+			(t, ρ, r) -> lind(dt, clist=clist, flist=flist)(t, h(t, ρ, r)) :
+			(t, ρ) -> lind(dt, clist=clist, flist=flist)(t, h(t, ρ))
+end
+
+# ╔═╡ f9e49ee3-d8d2-4d92-8ce0-f9d07401d61c
+md" ##### Testing: no time-dependence"
+
+# ╔═╡ 4ee435fb-e786-4a9f-8f46-1820e6ce9936
+function expevolve2(; rs=[])
+	# readout distribution
+	sim = (length(rs) == 0)
+	ts = range(first(T), last(T), step=dt)
+	
+	# first time step
+	(xn, yn, zn) = (x0, y0, z0)	
+	(xs, ys, zs, ρs) = ([x0], [y0], [z0], [tr(ρ0*ρ0)])
+	ρ = ρ0
+
+	
+	if sim
+		dist = Normal(0, sqrt(τm/dt))
+		push!(rs, 0) end
+		
+
+	for i in 2:length(ts)
+		t = ts[i]
+		
+		# sample from distribution		
+		if sim
+			r = zn + rand(dist)
+			push!(rs, r)
+		else
+			r = rs[i] end
+		
+ 		# update equations
+		
+		# measurement backaction
+		M = exp(r' * dt * DenseOperator(σz) / 2τm)
+		ρ = M * ρ * M'
+		ρ = ρ / tr(ρ) 
+		
+		# Hamiltonian evolution
+		H = (Δ0 + Δ1*r) * σϕ/2
+		
+		# Lindblad evolution
+		L = lind(dt, H, clist=[], flist=J)
+		
+		ρ = L(t, ρ/tr(ρ))
+		
+		
+		# store values
+		push!(xs, real(expect(ρ, σx)))
+		push!(ys, real(expect(ρ, σy)))
+		push!(zs, real(expect(ρ, σz)))
+		push!(ρs, tr(ρ*ρ))
+		
+
+	end
+	
+	return ts, rs, (xs, ys, zs, ρs)
+	
+	
+end
+
+# ╔═╡ d7d0ec12-242f-4c1c-875e-f960a2d9c88f
+(_, _, (xxe2, yye2, zze2, rre2)) = expevolve2(rs=r)
+
+# ╔═╡ 406317be-0a5a-4895-ad79-70fbc683f79b
+md" ##### Testing: functionally defined Hamiltonian"
+
+# ╔═╡ 8f11676f-ab29-4a30-a23c-4e65039f3a44
+Hf(t, r) = (Δ0 + Δ1*r[1]) * σϕ/2
+
+# ╔═╡ 9a21aa2e-8034-41b0-a87b-d261efe70ee2
+rs = map(el -> [el], r)
+
+# ╔═╡ 295bef3d-8f73-453e-86dc-b8e61cdded83
+function expevolve3(; rs=[])
+	# readout distribution
+	sim = (length(rs) == 0)
+	ts = range(first(T), last(T), step=dt)
+	
+	# first time step
+	(xn, yn, zn) = (x0, y0, z0)	
+	(xs, ys, zs, ρs) = ([x0], [y0], [z0], [tr(ρ0*ρ0)])
+	ρ = ρ0
+
+	
+	if sim
+		dist = Normal(0, sqrt(τm/dt))
+		push!(rs, [0]) end
+		
+
+	for i in 2:length(ts)
+		t = ts[i]
+		
+		# sample from distribution		
+		if sim
+			r = zn + rand(dist)
+			push!(rs, [r])
+		else
+			r = rs[i] end
+		
+ 		# update equations
+		
+		# measurement backaction
+		M = exp(r[1]' * dt * DenseOperator(σz) / 2τm)
+		ρ = M * ρ * M'
+		ρ = ρ / tr(ρ) 
+		
+		# Hamiltonian evolution
+		
+		# Lindblad evolution
+		L = lind(dt, Hf, clist=[], flist=J)
+		
+		ρ = L(t, ρ/tr(ρ), r)
+		
+		
+		# store values
+		push!(xs, real(expect(ρ, σx)))
+		push!(ys, real(expect(ρ, σy)))
+		push!(zs, real(expect(ρ, σz)))
+		push!(ρs, tr(ρ*ρ))
+		
+
+	end
+	
+	return ts, rs, (xs, ys, zs, ρs)
+	
+	
+end
+
+# ╔═╡ d429e614-a7d4-43e9-ac9b-d7dcfdfb4efa
+tt
+
+# ╔═╡ fcefa57c-d828-47b0-bc98-c107c9078946
+argmin(abs.(tt .- td))
+
+# ╔═╡ 5957c035-687a-48d0-8c9a-ad0489c3f240
+function expevolve4(; rs=[], td=0)
+	# readout distribution
+	sim = (length(rs) == 0)
+	ts = range(first(T), last(T), step=dt)
+	
+	# first time step
+	(xn, yn, zn) = (x0, y0, z0)	
+	(xs, ys, zs, ρs) = ([x0], [y0], [z0], [tr(ρ0*ρ0)])
+	ρ = ρ0
+
+	
+	if sim
+		dist = Normal(0, sqrt(τm/dt))
+		push!(rs, [0]) end
+		
+	td_index = argmin(abs.(ts .- td))
+	
+		for i in 2:td_index
+		t = ts[i]
+		rf = r[i - td_index]
+		
+		# sample from distribution		
+		if sim
+			r = zn + rand(dist)
+			push!(rs, [r])
+		else
+			r = rs[i] end
+		
+ 		# update equations
+		
+		# measurement backaction
+		M = exp(r[1]' * dt * DenseOperator(σz) / 2τm)
+		ρ = M * ρ * M'
+		ρ = ρ / tr(ρ) 
+		
+		# Hamiltonian evolution
+		
+		# Lindblad evolution
+		L = lind(dt, Hf, clist=[], flist=J)
+		
+		ρ = L(t, ρ/tr(ρ), 0)
+		
+		
+		# store values
+		push!(xs, real(expect(ρ, σx)))
+		push!(ys, real(expect(ρ, σy)))
+		push!(zs, real(expect(ρ, σz)))
+		push!(ρs, tr(ρ*ρ))
+		
+
+	end
+
+	for i in (td_index+1):length(ts)
+		t = ts[i]
+		rf = rs[i - (td_index - 1)]
+		
+		# sample from distribution		
+		if sim
+			r = zn + rand(dist)
+			push!(rs, [r])
+		else
+			r = rs[i] end
+		
+ 		# update equations
+		
+		# measurement backaction
+		M = exp(r[1]' * dt * DenseOperator(σz) / 2τm)
+		ρ = M * ρ * M'
+		ρ = ρ / tr(ρ) 
+		
+		# Hamiltonian evolution
+		
+		# Lindblad evolution
+		L = lind(dt, Hf, clist=[], flist=J)
+		
+		ρ = L(t, ρ/tr(ρ), rf)
+		
+		
+		# store values
+		push!(xs, real(expect(ρ, σx)))
+		push!(ys, real(expect(ρ, σy)))
+		push!(zs, real(expect(ρ, σz)))
+		push!(ρs, tr(ρ*ρ))
+		
+
+	end
+	
+	return ts, rs, (xs, ys, zs, ρs)
+	
+	
+end
+
+# ╔═╡ d3ec6758-b27d-4c1e-a7de-7383f0f9027e
+(_, _, (xxe3, yye3, zze3, rre3)) = expevolve4(rs=rs)
+
+# ╔═╡ 75bc7334-aac0-4d5e-895d-894ba49ce492
+yye3
 
 # ╔═╡ 3258df22-de38-4ab5-92b7-0a828bc32155
 md" ## Utilities "
@@ -280,28 +618,6 @@ function blochs(sol)
 	(collect(tt), xx, yy, zz, ρρ)
 	
 end
-
-# ╔═╡ 304d5f8b-8870-46e9-a293-2df0d2c2895b
-begin
-	(ts, ρb, rs) = solb
-	rs = collect(rs[1]) # record output from bayesian
-	(tb, xb, yb, zb, rb) = blochs(solb)
-end
-
-# ╔═╡ 80b90542-7062-4022-a509-de8bdabaa2d2
-begin
-	m=1
-	n=length(tb)
-end
-
-# ╔═╡ 4be08527-fce2-4d1e-9255-b6663193f7cb
-avgbloch(trajectories, A) = mean(collect(map(traj -> real(expect.(traj, [A for i in 1:length(ts)])), trajectories)))
-
-# ╔═╡ 6170d744-b16d-49f4-bbd4-d54e9df87037
-(xavg, yavg, zavg) = map(A -> avgbloch(trajectories, A), [σx, σy, σz])
-
-# ╔═╡ d6734dcc-e5ee-4523-9970-b46542b1372a
-plot_records((tt,blochs,dys); plot_title="record, hard-coded")
 
 # ╔═╡ 739984d0-91a6-45d1-bd2a-0561bfb3e4d5
 purity(x,y,z) = 0.5*(1 + x^2 + y^2 + z^2)
@@ -487,20 +803,23 @@ function plot_timeseries(ttseries...; plot_title="time series", xlab=L"$t$", yla
 	
 end
 
-# ╔═╡ 0d026ed1-10ed-4d5a-b897-6a3e91a78c1e
-plot_timeseries(tt, xtar, xx, ytar, yy, ztar, zz, rr; plot_title="hard-coded evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr ", L"$\rho^2$")], colorpairs=true, ylims=[-0.1,1.1])
+# ╔═╡ a348c59c-acb5-428f-b544-d5e1038c56d6
+plot_timeseries(tt, xtar, xx, ytar, yy, ztar, zz, rr; plot_title="hard-coded evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr ", L"$\rho^2$")], colorpairs=true, ylims=[0.5,0.9])
 
-# ╔═╡ adb06221-1db3-46e0-b147-c0ae7bbcce30
+# ╔═╡ 7bc8459e-1652-497f-87da-e2e45b145df7
 plot_timeseries((tt, r); plot_title="blochevolve simulated record")
 
-# ╔═╡ d9ad9721-18d5-452e-ad34-4037973b20cb
-plot_timeseries(tb, xtar, xb, ytar, yb, ztar, zb, rb; plot_title="bayesian evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr", L"$\rho^2$")], colorpairs=true, ylims=[-0.1,1.1])
+# ╔═╡ 2a842a56-4d47-4a4e-9c3c-7f7ce5c1ac75
+plot_timeseries(tt, xtar, xxe, ytar, yye, ztar, zze, rre; plot_title="hard-coded matrix exp evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr ", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
 
-# ╔═╡ 7b9a1dd8-7aa9-4a71-b942-177d05224886
-plot_timeseries(tb, xtar, xavg, ytar, yavg, ztar, zavg, rb; plot_title="average bayesian evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
+# ╔═╡ 477756ac-f4ff-471e-b73a-13183585592a
+plot_timeseries(tt, xtar, xx, ytar, yy, ztar, zz, rr; plot_title="hard-coded evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr ", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
 
-# ╔═╡ 369aa5bf-b76c-444f-aa48-4c7403b1e92c
-plot_timeseries((tb, rs); plot_title="bayesian simulated record")
+# ╔═╡ fe17c0d6-7195-4491-84b6-582d907eeb92
+plot_timeseries(tt, xtar, xxe2, ytar, yye2, ztar, zze2, rre2; plot_title="matrix exp evolution using functions", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr ", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
+
+# ╔═╡ 43de5e01-e2e7-4302-8914-0fc444645db4
+plot_timeseries(tt, xtar, xxe3, ytar, yye3, ztar, zze3, rre3; plot_title="matrix exp evolution using functions", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr ", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
 
 # ╔═╡ c541a88e-0a5a-48d2-b490-91ef7500dbe5
 # Plotting
@@ -592,11 +911,6 @@ red(text; title="Note") = Markdown.MD(Markdown.Admonition("danger", title, [text
 # ╔═╡ 7bfcd716-0b89-4ff0-85e5-0b7fd65a305d
 tan(text; title="Note") = Markdown.MD(Markdown.Admonition("warning", title, [text]))
 
-# ╔═╡ e8b31676-5bcf-4ee0-87c9-5b88cc095155
-
-tan(md"I don't think the feedback code I wrote in `QuantumCircuits.jl` is working properly. I think when I am calling `dy` I am not using the form of dy that is already filled with the measured values...")
-
-
 # ╔═╡ c44d4025-7ce8-4623-bc97-7bbb555914d1
 blue(text; title="Note") = Markdown.MD(Markdown.Admonition("note", title, [text]))
 
@@ -612,40 +926,45 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─18c29abc-1f35-4b5a-bb27-a491c02cc98f
 # ╟─01f57775-b647-4fea-8e96-0b8c8ceeff05
 # ╠═eae605ed-f411-4f33-8066-bd8f01fc8a2d
+# ╟─071641ac-a5a8-4d37-b531-88b1e083416c
 # ╠═6294f81c-ea9d-4500-9751-b45f8a348639
 # ╠═ee541c05-c187-4b43-a803-2255e254efe5
 # ╠═c5de979e-de3b-4a20-9fc4-649851a311fa
 # ╟─8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
-# ╟─436c2d6e-eed8-4313-9c0c-295a9a706344
-# ╠═0ef74ae9-2b4a-4fd4-abc1-e7bfc2eea931
-# ╠═5022461e-6138-4ff6-9292-2820a8ec18d1
-# ╠═d614159d-c5d4-49cb-9320-115e2b9d59d3
-# ╠═0d026ed1-10ed-4d5a-b897-6a3e91a78c1e
-# ╠═adb06221-1db3-46e0-b147-c0ae7bbcce30
-# ╟─40a10a59-80a1-4b21-b6e1-d1a774330dd0
-# ╠═df33032d-29df-41dc-aedb-6dde844f5f01
-# ╠═304d5f8b-8870-46e9-a293-2df0d2c2895b
-# ╠═d9ad9721-18d5-452e-ad34-4037973b20cb
-# ╠═f6fc3c8a-6f77-4b0b-8383-3c49601a393b
-# ╠═acfa5eef-4bd5-4157-80ae-5199855df99a
-# ╠═24ee48da-8a38-47e1-9020-cf8a03ceab24
-# ╠═80b90542-7062-4022-a509-de8bdabaa2d2
-# ╠═fd9a642b-12e8-4330-bf39-d67efdce35cb
-# ╠═4be08527-fce2-4d1e-9255-b6663193f7cb
-# ╠═6170d744-b16d-49f4-bbd4-d54e9df87037
-# ╠═7b9a1dd8-7aa9-4a71-b942-177d05224886
-# ╠═369aa5bf-b76c-444f-aa48-4c7403b1e92c
-# ╠═d6734dcc-e5ee-4523-9970-b46542b1372a
-# ╠═a74e31c5-a582-4240-a54f-cd09a3b0b720
-# ╠═2b750028-1c81-4180-a59a-02bcbd331c7a
-# ╠═e2acd522-2add-4aff-ad49-30d7ab0c8292
-# ╠═65d5b466-263b-48d4-a0ce-7ecf32bcacbb
-# ╠═9fa0d08b-d902-4850-ba87-546ab58a108f
-# ╠═7d41021a-5ee7-4f06-97c0-4efd490b88f9
-# ╠═79604a4e-372e-4a89-b377-46ac6b284078
-# ╠═d37aaf9e-1d74-47ed-a0a4-0876316f6cda
-# ╟─e8b31676-5bcf-4ee0-87c9-5b88cc095155
-# ╟─3258df22-de38-4ab5-92b7-0a828bc32155
+# ╠═ea558387-68dc-4dff-ae04-f7a877379510
+# ╠═f2892559-e623-46d4-9ff2-f04fd9253734
+# ╠═4487690f-349c-461c-a5b1-f9a6be9897bd
+# ╠═a348c59c-acb5-428f-b544-d5e1038c56d6
+# ╠═7bc8459e-1652-497f-87da-e2e45b145df7
+# ╟─15613717-87c1-45d8-b194-1c7b1085d4f7
+# ╠═840beeea-a731-4a38-b36b-e2ab848147d9
+# ╠═bc8e8a5f-6476-402f-9cc6-0af722a6c033
+# ╠═e7353f43-899d-4899-86b5-1303676c07ec
+# ╠═2c1f165f-cabd-4599-afc7-348799754f5e
+# ╠═90511e52-c343-490b-81b2-1502c546e16b
+# ╠═2a842a56-4d47-4a4e-9c3c-7f7ce5c1ac75
+# ╠═477756ac-f4ff-471e-b73a-13183585592a
+# ╠═9e731ac9-e11c-427b-9569-4a925799042a
+# ╟─ab459f70-e40a-499f-bd05-248270d7d4dd
+# ╟─2487c71c-2d00-4ac0-8cec-7d3f2e80ab3e
+# ╠═5d2e29b6-3f8e-4e66-9442-c325af182a6a
+# ╟─8c422daa-fbf6-4a9e-83ce-3523948aa069
+# ╟─3ad727fc-6955-4bb9-b9bf-cb34b63c8c70
+# ╟─f9e49ee3-d8d2-4d92-8ce0-f9d07401d61c
+# ╟─4ee435fb-e786-4a9f-8f46-1820e6ce9936
+# ╠═d7d0ec12-242f-4c1c-875e-f960a2d9c88f
+# ╠═fe17c0d6-7195-4491-84b6-582d907eeb92
+# ╟─406317be-0a5a-4895-ad79-70fbc683f79b
+# ╠═8f11676f-ab29-4a30-a23c-4e65039f3a44
+# ╠═9a21aa2e-8034-41b0-a87b-d261efe70ee2
+# ╟─295bef3d-8f73-453e-86dc-b8e61cdded83
+# ╠═d429e614-a7d4-43e9-ac9b-d7dcfdfb4efa
+# ╠═fcefa57c-d828-47b0-bc98-c107c9078946
+# ╠═5957c035-687a-48d0-8c9a-ad0489c3f240
+# ╠═d3ec6758-b27d-4c1e-a7de-7383f0f9027e
+# ╠═75bc7334-aac0-4d5e-895d-894ba49ce492
+# ╠═43de5e01-e2e7-4302-8914-0fc444645db4
+# ╠═3258df22-de38-4ab5-92b7-0a828bc32155
 # ╟─e59530ae-7f27-4836-a352-9d0a08d62451
 # ╠═a589fb58-fc99-493d-bca4-fd21dc6a78d8
 # ╠═c9a3a847-d910-4433-926a-d1bfd012f248
