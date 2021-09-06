@@ -21,7 +21,7 @@ md" # Linear feedback stabilization"
 
 # ╔═╡ b9bd68f2-df48-4072-8269-1898b7cf1b15
 md"""
-In this interactive notebook, we implement the linear feedback stabilization described in [1].
+In this interactive notebook, we implement the linear feedback stabilization described in Patti *et al.* [1] with modifications to attempt phase-backaction stabilization.
 """
 
 # ╔═╡ e66e6723-16fe-4d8d-ae1f-f8237f8e8897
@@ -49,23 +49,26 @@ end
 md"""
 ### Description of the evolution
 
-The Hamiltonian is a Rabi drive modulated by the feedback from the measurement readout:
+The Hamiltonian is a Rabi drive modulated by the feedback from the phase-preserving (heterodyne) measurement readout:
 
-$\hat H_c = \hbar \big[\Delta_0 + \Delta_1 \tilde{r}(t - T_d) \big] \frac{\hat \sigma_\phi}2$
+$\hat H_c =  \frac{\hbar}2 \big[\Delta_0 + \Delta_1 \tilde{r}(t - T_d)\big] \hat \sigma_\phi(\tilde{r}_I(t - T_d))$
 
 where
 
-$\hat \sigma_\phi = \cos \phi \hat \sigma_x + \sin \phi \hat \sigma_y,$
+$\hat \sigma_\phi(\tilde{r}(t - T_d))= \cos \phi(\tilde{r}) \hat \sigma_x + \sin \phi(\tilde{r}) \hat \sigma_y$.
 
-and $\hat \sigma_x$ and $\hat \sigma_y$ are the corresponding Pauli operators. Thus there is a base Rabi frequency $\Delta_0$ modulated by a linear feedback term $\Delta_1 \tilde{r} (t-T_d)$.
+Here, $\hat \sigma_x$ and $\hat \sigma_y$ are the corresponding Pauli operators, while
+
+$\phi(\tilde{r}) = \phi_0 - \Delta_\phi \tilde{r}_Q(t - T_d).$
+
+Thus there is a base Rabi frequency $\Delta_0$ modulated by a linear feedback term $\Delta_1 \tilde{r}_I (t-T_d)$, where the $I$ subscript denotes the informational quadrature. The plane of Rabi frequency is determined by $\phi(\tilde{r})$, which deviates from its default value $\phi_0$ by an amount proportional to the time-delayed phase-quadrature readout $\tilde{r}_Q(t - T_d)$.
+
+The goal is to stabilize the Rabi oscillations to the desired state as well as reduce backaction from measuring the qubit phase.
 
 """
 
 # ╔═╡ 01f57775-b647-4fea-8e96-0b8c8ceeff05
 md" ### Parameters and operators"
-
-# ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
-ideal = true
 
 # ╔═╡ eae605ed-f411-4f33-8066-bd8f01fc8a2d
 begin
@@ -76,25 +79,25 @@ begin
 	
 	dt = 0.5e-3  # integration time-step
 	td = 0 # 200e-3 # delay time
-	η = 1 # 0.41 # measurement efficiency
+	η = 0.2 # 1 # measurement efficiency
 	
 	θs = 3π/10 # target angle on Bloch sphere
 	ϕ = π # fixes plane of oscillations
 	σϕ = cos(ϕ)*σx + sin(ϕ)*σy
 	
-	τm =  0.2 # measurement time
+	τm =  2 # 0.2 # measurement time
 	Γm = 1/(2τm) # measurement rate
-	T = (0, 4) #(0, 10τm) # simulation duration
+	T = (0, 10) #(0, 10τm) # simulation duration
 	tlist = range(first(T), last(T), step=dt) # list of times
 	
 	Rs = 1 # 0.64 # radius of target
 	
 	# feedback drive parameters
-	Δ0 = ideal ? -sin(2θs)/(4τm) : -sin(2θs)/(4τm*Rs^2) 
-	Δ1 = ideal ? sin(θs)/τm : sin(θs)/(τm*Rs)
+	Δ0 = 2π/5 # ideal ? -sin(2θs)/(4τm) : -sin(2θs)/(4τm*Rs^2) 
+	Δ1 = 0 # ideal ? sin(θs)/τm : sin(θs)/(τm*Rs)
 		
-	T1 = 40 # energy decay time
-	T2 = 60 # environmental dephasing time
+	T1 = 10 # energy decay time
+	T2 = 20 # environmental dephasing time
 
 	# corresponding rates
 	Γ1 = 1/(2T1)
@@ -102,6 +105,9 @@ begin
 
 	
 end
+
+# ╔═╡ a1a93d7b-d004-43d4-8cf0-d1d5faf1fa23
+12τm
 
 # ╔═╡ 6294f81c-ea9d-4500-9751-b45f8a348639
 begin
@@ -111,6 +117,9 @@ begin
 	
 end
 
+# ╔═╡ c5de979e-de3b-4a20-9fc4-649851a311fa
+ideal = true
+
 # ╔═╡ ee541c05-c187-4b43-a803-2255e254efe5
 begin
 	# Hamiltonian defined at a certain time t, 
@@ -118,8 +127,8 @@ begin
 	H0(t, r::Array) = (Δ0 + Δ1*r[1])*σϕ/2
 	# H0 = Δ0*σϕ/2 
 	C = [(σz, τm, η)]
-	J = [√((1-η)*Γm)*σz]
-	#J = ideal ? [√((1-η)*Γm)*σz] : [√((1-η) * Γm) * σz, √Γ1*σm, √Γ2*σz] 
+	# J = [√((1-η)*Γm)*σz]
+	J = ideal ? [√((1-η)*Γm)*σz] : [√((1-η) * Γm) * σz, √Γ1*σm, √Γ2*σz] 
 end
 
 # ╔═╡ 8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
@@ -209,7 +218,14 @@ end
 md" ### `QuantumCircuits.jl` general implementation"
 
 # ╔═╡ df33032d-29df-41dc-aedb-6dde844f5f01
-solb = bayesian(T, ρ0, H0, J, C; dt=dt, td=td, heterodyne=false, r=[r])
+
+
+# ╔═╡ 5628d688-6b5f-4a8c-9e25-35aa58fe53e7
+begin
+	Random.seed!(3)
+	# solb = bayesian(T, ρ0, H0, J, C; dt=dt, td=td, heterodyne=false, r=[r])
+	solb = bayesian(T, ρ0, H0, J, C; dt=dt, td=td, heterodyne=false)
+end
 
 # ╔═╡ f6fc3c8a-6f77-4b0b-8383-3c49601a393b
 testvar = nothing
@@ -427,7 +443,7 @@ end
 
 # ╔═╡ a1c5942e-4c27-4cbb-8fa8-b47d9449c523
 # Plotting
-function plot_timeseries(tt::Array, series...; plot_title="time series", xlab=L"$t$", ylab="arbitrary units", labels=[]::Array, ylims=[], colorpairs=false, kwargs...)
+function plot_timeseries(tt::Array, series...; plot_title="time series", xlab=L"$t$", ylab="arbitrary units", labels=[]::Array, ylims=[], colorpairs=false, leg=true, kwargs...)
 	close("all")
 	ser_colors(i) = colorpairs ? colors[i] : colors[2i]
 	
@@ -452,14 +468,16 @@ function plot_timeseries(tt::Array, series...; plot_title="time series", xlab=L"
     xlabel(xlab)
     ylabel(ylab)
     title(plot_title)
-    legend()
+    if leg
+		legend()
+	end
     gcf()
 	
 end
 
 # ╔═╡ aec50388-2682-44cd-aab8-6474cc863f31
 # Plotting
-function plot_timeseries(ttseries...; plot_title="time series", xlab=L"$t$", ylab="arbitrary units", labels=[]::Array, colorpairs=false)
+function plot_timeseries(ttseries...; plot_title="time series", xlab=L"$t$", ylab="arbitrary units", labels=[]::Array, colorpairs=false, leg=true)
 	close("all")
 	ser_colors(i) = colorpairs ? colors[i] : colors[2i]
 	
@@ -482,7 +500,9 @@ function plot_timeseries(ttseries...; plot_title="time series", xlab=L"$t$", yla
     xlabel(xlab)
     ylabel(ylab)
     title(plot_title)
-    legend()
+	if leg
+		legend()
+	end
     gcf()
 	
 end
@@ -494,13 +514,19 @@ plot_timeseries(tt, xtar, xx, ytar, yy, ztar, zz, rr; plot_title="hard-coded evo
 plot_timeseries((tt, r); plot_title="blochevolve simulated record")
 
 # ╔═╡ d9ad9721-18d5-452e-ad34-4037973b20cb
-plot_timeseries(tb, xtar, xb, ytar, yb, ztar, zb, rb; plot_title="bayesian evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr", L"$\rho^2$")], colorpairs=true, ylims=[-0.1,1.1])
+plot_timeseries(tb, xtar, xb, ytar, yb, ztar, zb, rb; plot_title="bayesian evolution", xlab=string(L"$t$", " (μs)"), ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
 
-# ╔═╡ 7b9a1dd8-7aa9-4a71-b942-177d05224886
-plot_timeseries(tb, xtar, xavg, ytar, yavg, ztar, zavg, rb; plot_title="average bayesian evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
+# ╔═╡ 85600ace-5a70-4ffb-86f8-25a94199bec2
+plot_timeseries(tb, xb, yb, zb; plot_title="monitored Rabi oscillations", xlab=string(L"$t$", " (μs)"), ylab="bloch coordinates", labels=["x", "y", "z"], colorpairs=false, ylims=[-1.1,1.1])
+
+# ╔═╡ 20cb066b-5997-4348-82f8-5c3cd74207cc
+plot_timeseries((tb, rs); plot_title="simulated record", xlab=string(L"$t$", "  (μs)"), leg=false)
 
 # ╔═╡ 369aa5bf-b76c-444f-aa48-4c7403b1e92c
 plot_timeseries((tb, rs); plot_title="bayesian simulated record")
+
+# ╔═╡ 7b9a1dd8-7aa9-4a71-b942-177d05224886
+plot_timeseries(tb, xtar, xavg, ytar, yavg, ztar, zavg, rb; plot_title="average bayesian evolution", xlab=L"$t$", ylab="bloch coordinates", labels=["x target", "x", "y target", "y", "z target", "z", string("Tr", L"$\rho^2$")], colorpairs=true, ylims=[-1.1,1.1])
 
 # ╔═╡ c541a88e-0a5a-48d2-b490-91ef7500dbe5
 # Plotting
@@ -612,7 +638,8 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─18c29abc-1f35-4b5a-bb27-a491c02cc98f
 # ╟─01f57775-b647-4fea-8e96-0b8c8ceeff05
 # ╠═eae605ed-f411-4f33-8066-bd8f01fc8a2d
-# ╠═6294f81c-ea9d-4500-9751-b45f8a348639
+# ╠═a1a93d7b-d004-43d4-8cf0-d1d5faf1fa23
+# ╟─6294f81c-ea9d-4500-9751-b45f8a348639
 # ╠═ee541c05-c187-4b43-a803-2255e254efe5
 # ╠═c5de979e-de3b-4a20-9fc4-649851a311fa
 # ╟─8aa08bfb-ac91-4e5f-9fb2-dbce02a38b8a
@@ -624,8 +651,12 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╠═adb06221-1db3-46e0-b147-c0ae7bbcce30
 # ╟─40a10a59-80a1-4b21-b6e1-d1a774330dd0
 # ╠═df33032d-29df-41dc-aedb-6dde844f5f01
+# ╠═5628d688-6b5f-4a8c-9e25-35aa58fe53e7
 # ╠═304d5f8b-8870-46e9-a293-2df0d2c2895b
 # ╠═d9ad9721-18d5-452e-ad34-4037973b20cb
+# ╠═85600ace-5a70-4ffb-86f8-25a94199bec2
+# ╠═20cb066b-5997-4348-82f8-5c3cd74207cc
+# ╠═369aa5bf-b76c-444f-aa48-4c7403b1e92c
 # ╠═f6fc3c8a-6f77-4b0b-8383-3c49601a393b
 # ╠═acfa5eef-4bd5-4157-80ae-5199855df99a
 # ╠═24ee48da-8a38-47e1-9020-cf8a03ceab24
@@ -634,7 +665,6 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╠═4be08527-fce2-4d1e-9255-b6663193f7cb
 # ╠═6170d744-b16d-49f4-bbd4-d54e9df87037
 # ╠═7b9a1dd8-7aa9-4a71-b942-177d05224886
-# ╠═369aa5bf-b76c-444f-aa48-4c7403b1e92c
 # ╠═d6734dcc-e5ee-4523-9970-b46542b1372a
 # ╠═a74e31c5-a582-4240-a54f-cd09a3b0b720
 # ╠═2b750028-1c81-4180-a59a-02bcbd331c7a
@@ -657,7 +687,7 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─6afc5215-2b51-425f-aecc-b20e15d5128a
 # ╟─8bb2e4ea-e480-4e03-be07-24a5c4d6c780
 # ╠═a1c5942e-4c27-4cbb-8fa8-b47d9449c523
-# ╟─aec50388-2682-44cd-aab8-6474cc863f31
+# ╠═aec50388-2682-44cd-aab8-6474cc863f31
 # ╟─c541a88e-0a5a-48d2-b490-91ef7500dbe5
 # ╟─c0c7bcf3-3a8e-489d-9bda-4113764190ec
 # ╟─abcd28b0-8d41-4953-9bda-800c56a9fa27

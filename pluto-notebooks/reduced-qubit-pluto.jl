@@ -27,7 +27,7 @@ end
 
 # ╔═╡ 377a3336-20bd-4baa-a033-af8bbc8668a8
 md"""
-# Ensemble average checks
+# Reduced qubit evolution
 
 In this interactive notebook, we'll look at reduced qubit evolution as a basic example to gain intuition for Cavity Quantum Electrodynamics (CQED).
 """
@@ -397,7 +397,7 @@ md"""
 
 # ╔═╡ Cell order:
 # ╠═4c45fe3e-cd69-11eb-20cd-7bfb98c040cf
-# ╠═377a3336-20bd-4baa-a033-af8bbc8668a8
+# ╟─377a3336-20bd-4baa-a033-af8bbc8668a8
 # ╟─7f1176b8-f6d3-4fd1-a23e-31710dcfff10
 # ╟─982565bc-b137-4c10-8e13-5fe37be86823
 # ╠═4284173a-be05-4b58-a8d9-7189301344fd
