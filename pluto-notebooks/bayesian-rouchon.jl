@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.15.1
+# v0.16.0
 
 using Markdown
 using InteractiveUtils
@@ -46,69 +46,9 @@ end
 
 # ╔═╡ 5d30c7c1-4c53-40d2-8e73-b58db5697cfa
 md"""
-# Bayesian vs. Rouchon integration methods
+# Bayesian and Rouchon integration methods
 
-In this interactive notebook, we'll compare quantitative and qualitative features of the two primary integration methods -- `bayesian` and `rouchon` -- implemented in `QuantumCircuits.jl`. What follows is a brief summary of key commonalities and differences before we dive into the details.
-"""
-
-# ╔═╡ d4e7b79b-eb8c-48b3-9a94-650481fa8cb7
-md"""
-##### Commonalities
-
-The `bayesian` and `rouchon` methods have important commonalities. 
-
-Both:
-* Model quantum trajectories of weakly and continuously measured open quantum systems.
-
-* Take `H`, `[J]`, `[C]` (Hamiltonian, Lindblad, collapse) operators as inputs.
-
-* If simulating quantum trajectories, can generate a noisy record of a monitored variable $r = \langle x \rangle + dW/dt$, with Wiener process $dW \sim \mathcal{N}(0, \sqrt{\tau_m})$ (**CHECK THIS**) if running a simulation. If reconstructing experimental trajectories, can process an imported experimental record.
-
-"""
-
-# ╔═╡ bef8c648-af4c-46c1-87b4-29f744f9aaf3
-md"""
-##### API
-
-The two methods have the same API:
-```
-rouchon(T, ρ0, H, J, C; <keyword arguments>)
-
-Arguments:
-
-T :: tuple (ti,tf)
-ρ0 :: initial density matrix
-H :: time-dependent Hamiltonian
-J :: deterministic collapse operators
-C :: stochastic collapse operators
-
-Keyword Arguments:
-
-dt :: time step; default dt=1e-4
-dy :: record; default dy=[], i.e. simulation generates record time series.
-            record should be input in the shape [dy_1,...,dy_Nc] given
-            length(C)=Nc collapse operators. Records should have shape
-            dy_c[t] indexing the mth trajectory at time T[n]
-fn : ρ → Any :: eval function (e.g. to return expectation values instead of density matrices)
-
-Returns: (ts, ρs, dy)
-
-ts :: list of simulation times
-ρs :: fn(ρ) at each simulation time
-dy :: input OR simulated record, depending on value of keyword argument dy
-
-```
-"""
-
-# ╔═╡ 2059a835-925d-430d-aa0c-283a03f6ba2d
-md"""
-In most (all?) implementations of quantum circuit dynamics, inputs will take the following form:
-
-* `H = H0` or `H = H(t)` : time-in/dependent Hamiltonian;
-
-* `J = [J0, ..., Jn, √(1-η_0)C0, ... , √(1-η_m)Cm]` : list of $n$ dissipation operators $\{J_0, ..., J_n\}$ and $m$ fluctuation-dissipation operators $\{\sqrt{1-\eta_0} C_0, ..., \sqrt{1-\eta_m} C_m \}$ with $n, m \geq 0$;
-
-* `C = [√η C0, ..., √Cm]` : list of $m$ fluctuation operators $\{\sqrt{\eta_0} C_0, ..., \sqrt{\eta_m} C_m \}$.
+In this interactive notebook, we'll compare quantitative and qualitative features of the two primary integration methods -- `bayesian` and `rouchon` -- implemented in `QuantumCircuits.jl`.
 """
 
 # ╔═╡ 476f0b08-7d21-4010-b114-130e6dfbbae0
@@ -120,17 +60,18 @@ md"""
 # ╔═╡ 639931ed-0520-499c-ba1c-90b04e854ebd
 begin
 	ΩR  = 2π # Rabi frequency
-	τm = 3.0 # Measurement collapse timescale
-	Γm = 1/(2τm) # Measurement dephasing rate
+	
+	Γm = 0.16 # Measurement dephasing rate, (MHz)
+	τm = 1/(2Γm)  # Measurement collapse timescale (μs)
 	η = 0.3
 	
 	H = ΩR*σx/2
-	J = [√((1-η)*Γm)*σz] 
+	J = [(σz, (1-η)*Γm)] 
 	C = [(σz, τm, η)]
 	
 	T = (0,4τm) # simulation duration
 	ρ0 = dm(spinup(q))
-	dt = 5e-4 # integration time-step
+	dt = 1e-3 # integration time-step
 end
 
 # ╔═╡ 68627f37-30c6-47c2-85e3-a031cf4a2e05
@@ -153,6 +94,68 @@ md" ###### Simulation: Rouchon"
 
 # ╔═╡ bdf4c000-2845-4e2f-baf6-0d1161e477e3
 solr = rouchon(T, ρ0, H, J, C; dt=dt, r=[rs])
+
+# ╔═╡ d4e7b79b-eb8c-48b3-9a94-650481fa8cb7
+md"""
+##### Commonalities
+
+The `bayesian` and `rouchon` methods have important commonalities. 
+
+Both:
+* Model quantum trajectories of weakly and continuously measured open quantum systems.
+
+* Take `H`, `[J]`, `[C]` (Hamiltonian, Lindblad, collapse) operators as inputs.
+
+* If simulating quantum trajectories, can generate a noisy record of a monitored variable $r = \langle x \rangle + dW/dt$, with Wiener process $dW \sim \mathcal{N}(0, \sqrt{\tau_m})$ if running a simulation. If reconstructing experimental trajectories, can process an imported experimental record.
+
+"""
+
+# ╔═╡ bef8c648-af4c-46c1-87b4-29f744f9aaf3
+md"""
+##### API
+
+The two methods have the same API:
+
+```
+rouchon(T, ρ0, H, J, C; <keyword arguments>)
+
+Arguments:
+
+T :: tuple (ti,tf)
+ρ0 :: initial density matrix
+H :: (time-dependent) Hamiltonian
+J :: array of tuples (j, Γ) representing decoherence channel j at rate Γ
+C :: array of tuples (c, τ, η) representing measurement of c with timescale τ and collection efficiency η
+
+Keyword Arguments:
+
+dt :: time step; default dt=1e-4
+r :: record; default r=[], i.e. simulation generates record by randomly sampling distribution.
+            record should be input in the shape [r_1,...,r_Nc] given
+            length(C)=Nc collapse operators. Records should have shape
+            r_m[i] indexing the mth trajectory at time ts[i], where
+			ts = range(first(T), last(T), step=dt)
+fn : ρ → Any :: eval function (e.g. to return expectation values instead of density matrices)
+
+Returns: (ts, ρs, r)
+
+ts :: list of simulation times
+ρs :: fn(ρ) at each simulation time
+r :: input OR simulated record, depending on value of keyword argument r
+
+```
+"""
+
+# ╔═╡ 2059a835-925d-430d-aa0c-283a03f6ba2d
+md"""
+In most implementations of quantum circuit dynamics, inputs will take the following form:
+
+* `H = H0` or `H = H(t)` : time-in/dependent Hamiltonian;
+
+* `J = [(j1, Γ1), ..., (jn, Γn), (c1, (1 - η1)/(2τ1)), ... , (cm, (1 - ηm)/(2τm))]` : list of $n$ dissipation operators $\{\sqrt{Γ_0} j_0, ..., \sqrt{Γ_n} j_n\}$ and $m$ fluctuation-dissipation operators $\{\sqrt{\frac{1-\eta_1}{2\tau_1}} c_1, ..., \sqrt{\frac{1-\eta_m}{2\tau_m}} c_m \}$ with $n, m \geq 0$;
+
+* `C = [(c1, τ1, η1), ..., (cm, τm, ηm)]` : list of $m$ fluctuation operators $\{c_1, ..., c_m \}$ with collapse timescales $\{\tau_1, ..., \tau_m \}$ and collection efficiencies $\{\eta_1, ..., \eta_m \}$.
+"""
 
 # ╔═╡ b6c73eea-d17c-49d4-a091-be10c8134718
 md" ### Bayesian filtering "
@@ -225,7 +228,7 @@ $\rho''' = M_{\text{decay, } \hat J} \rho'' M_{\text{decay, } \hat J}^\dagger + 
 
 # ╔═╡ 6315198d-4962-4686-b436-80a3525e0dca
 md"""
-The final state after increment $\Delta t$ is obtained by renormalizing by the trace:
+The final state after increment $\Delta t$ is obtained after renormalizing by the trace:
 
 $\rho(t + \Delta t) = \frac{\rho'''}{\text{Tr}( \rho''')}.$
 
@@ -274,9 +277,7 @@ The Rouchon method is similar to the Bayesian method in that it uses completely 
 
 # ╔═╡ 676e029d-1141-41b2-bc81-5d2e4500c684
 md"""
-## Timing comparison
-
-Rouchon is faster for given $\Delta t$, but Bayesian is more robust to large $\Delta t$.
+## Comparing across different time steps
 """
 
 # ╔═╡ df840a53-c8b0-4215-97de-ef6f1c720ed7
@@ -294,7 +295,7 @@ Let's start by looking at the record generated by Bayesian in our example at the
 """
 
 # ╔═╡ 4f3c3104-c64d-4b77-8932-c37f4aaabaa1
-Rs
+rs
 
 # ╔═╡ 0b0f2aa0-431d-4029-b7c2-911aa4d2f69a
 md"""
@@ -305,17 +306,23 @@ $(@bind n html"<input type=range min=1. max=20. step=1 value=10>")
 
 # ╔═╡ 3e0a12d2-b4bf-4424-8b62-d9a714e393fc
 md"""
-Note that `bayesian` takes in / outputs a record of the form 
+Note that `bayesian` and `rouchon` both take in / output records of the form 
 	
-$R \equiv \frac{r}{\sqrt{\tau_m}} = \frac{z}{\sqrt{\tau_m}} + \frac{dW}{dt},$
-	
-where $dW \sim \mathcal N(0,\sqrt{dt})$ is a Wiener increment. Because of the $dt$ in the denominator of $dW/dt$, the record is distributed with standard deviation
-$\sigma = 1/\sqrt{dt}$. So changing $dt$ changes the variance of our record. In order to get an "equivalent" record as we increase $dt$, we coarse-grain the record.
+$r_i = \langle c_i \rangle + \zeta_i,$
+
+where 
+
+$\zeta_i \sim \mathcal N\Big(0, \sqrt{\frac{\tau_i}{dt}}\Big)$ 
+
+is a normally distributed stochastic variable with variance $\tau_i / dt$. This record corresponds to measurement of the $i^{th}$ measurement operator $c_i$, measured at rate $\Gamma_i = 1/(2\tau_i)$. (Note that the stochastic variable can be related to a Wiener increment $dW \sim \mathcal N(0, \sqrt{dt})$ by the relation $\zeta_i = \frac{dW}{dt} \sqrt{\tau_i}$.) 
+
+Suppose we want to reconstruct a trajectory using timestep $dt'$, but our record was sampling with time bins $dt < dt'$. Since increasing $dt$ decreases the variance of the record, we cannot simply sample the old record at the new timescale. We must also coarse-grain the old record, which naturally decreases the variance of the zero-mean Gaussian noise.
+
 
 `QuantumCircuits` has a built-in function `subseries` **(not built-in yet)** that does this automatically. The code below coarse-grains the record at a scale of n = $n, which creates a new record corresponding to measurement bins of width
 
 ```math
-dt' = 1/\sqrt{n \hspace{1mm}dt}
+dt' = n \hspace{1mm} dt,
 ```
 or $dt'$ =  $(dt*n) μs.
 
@@ -338,9 +345,9 @@ We can look at these two records as time-series or as histograms:
 md"""
 Since the record is Gaussian-distributed, time-smoothing the record using `subseries` reduces the variance of the distribution. We can check that the variances reported in the plot above are close to the theoretical values at each $dt$:
 
-fine-grained: $\sigma = 1/\sqrt{dt}$ = $(round(sqrt(1/dt),digits=3))
+fine-grained: $\sigma = \sqrt{\tau_m / dt}$ = $(round(sqrt(τm/dt),digits=3))
 
-coarse-grained: $\sigma = 1/\sqrt{n \hspace{1mm} dt}$ = $(round(sqrt(1/(dt*n)),digits=3))
+coarse-grained: $\sigma = \sqrt{\tau_m / (n \hspace{1mm} dt)}$ = $(round(sqrt(τm/(dt*n)),digits=3))
 """
 
 # ╔═╡ e0cb7572-3d67-47e0-9482-70588a693d41
@@ -363,7 +370,7 @@ Now we can run the trajectory reconstructions:
 
 # ╔═╡ 7c434d23-a5ed-41bb-8dc7-8b1440a0680b
 md"""
-Now we can compare:
+Now we can compare. Change the coarse-graining scale below and see how `bayesian` reconstruction is affected. (For small $n_s$, you may not see the difference visually!)
 """
 
 # ╔═╡ 82b18884-28d4-4ecb-b21c-d3e57dd64870
@@ -379,7 +386,10 @@ ns = $ns
 """
 
 # ╔═╡ 82d43f38-9cf6-4fee-bdc8-502234781678
-pairs=((L"$y$",round(dt*ns,digits=3)), (L"$y$",dt), (L"$z$",round(dt*ns,digits=3)),(L"$z$",dt))
+pairs=[string(L"$y', dt' = $", round(dt*ns,digits=3)), string(L"$y, dt = $", dt), string(L"$z', dt' = $", round(dt*ns,digits=3)), string(L"$z, dt = $", dt)]
+
+# ╔═╡ 52d62464-84cf-4589-9c2e-067fab53003a
+pairs
 
 # ╔═╡ a0bb68b2-edde-4941-b034-c1fe8c7141ae
 md" ##### Exactness of Bayesian method for $H = 0$ "
@@ -468,7 +478,7 @@ function subseries(rec, T, dt; scale=2)
 end
 
 # ╔═╡ 559d34ed-fcab-46d8-9fea-1774067b2d48
-(tts, Rss) = subseries(Rs, T, dt; scale=n)
+(tts, Rss) = subseries(rs, T, dt; scale=n)
 
 # ╔═╡ 43717946-c7f2-4f57-b516-9db669167587
 begin
@@ -477,13 +487,13 @@ begin
 end
 
 # ╔═╡ 91c7a5dd-f2e1-425b-9008-43854097f966
-(ttc, Rsc) = subseries(Rs, T, dt; scale=ns)
+(ttc, Rsc) = subseries(rs, T, dt; scale=ns)
 
 # ╔═╡ 7cc75874-ce1f-49da-860b-62a0f7fe800f
 begin
 	Tc = (ttc[1], ttc[end])
-	solb_coarse = bayesian(Tc, ρ0, H, J, C; dt=dt*ns, dydt=[Rsc])	
-	solr_coarse = rouchon(Tc, ρ0, H, J, C; dt=dt*ns, dydt=[Rsc])
+	solb_coarse = bayesian(Tc, ρ0, H, J, C; dt=dt*ns, r=[Rsc])	
+	solr_coarse = rouchon(Tc, ρ0, H, J, C; dt=dt*ns, r=[Rsc])
 	
 	(tbc,xbc,ybc,zbc,ρbc) = blochs(solb_coarse)
 	(trc,xrc,yrc,zrc,ρrc) = blochs(solr_coarse)
@@ -506,19 +516,13 @@ The root-mean-squared error between the two rouchon series is $(round(rms(yr[1:e
 T0 = (tss0[1], tss0[end])
 
 # ╔═╡ ec0a764b-b7b4-452f-bd67-062277fae5ea
-solH0_coarse = bayesian(T0, ρ00, H0, J, C; dt=dt*n0, dydt=[Rss0])	
+solH0_coarse = bayesian(T0, ρ00, H0, J, C; dt=dt*n0, r=[Rss0])	
 
 # ╔═╡ 4468cd55-6ac2-4ab8-af99-e521ca7a1672
 begin
 	(tb0,xb0,yb0,zb0,ρb0) = blochs(solH0) #map(ser -> subseries(ser, T, dt; scale=n0)[2], blochs(solH0))
 	(tc0,xc0,yc0,zc0,ρc0) = blochs(solH0_coarse)
 end
-
-# ╔═╡ 497217ee-58b6-4de3-bd4f-40f11953aab2
-zb0
-
-# ╔═╡ de54710d-4fa9-42ec-a55e-bcaab917e998
-zc0
 
 # ╔═╡ e018009f-53d3-40b5-9cf9-6f26099f3504
 Rss0
@@ -685,7 +689,7 @@ function record_histograms(records...; plot_title="record histogram", labels=[]:
 end
 
 # ╔═╡ ca72e503-c34c-4627-aa6f-ddc6aa3292aa
-record_histograms(Rs, Rss; labels=["dt = $dt μs", "dt = $(dt*n) μs"], density=true)
+record_histograms(rs, Rss; labels=["dt = $dt μs", "dt' = $(dt*n) μs"], density=true)
 
 # ╔═╡ 82f2e0a1-11ee-4aa6-a63f-e6ca170a8116
 # Plotting
@@ -748,7 +752,7 @@ function plot_timeseries(ttseries...; plot_title="time series", xlab=L"$t$", yla
 end
 
 # ╔═╡ a55e5440-8a5c-484d-83db-2ee32495f89b
-plot_timeseries((tt,Rs),(tts,Rss); plot_title="records", labels=["dt = $dt μs", "dt = $(dt*n) μs"])
+plot_timeseries((tt,rs),(tts,Rss); plot_title="records", labels=["dt = $dt μs", "dt' = $(dt*n) μs"])
 
 # ╔═╡ 576b3970-b370-4798-9e04-13321d97d587
 plot_timeseries((tbc, ybc), (tb, yb), (tbc, zbc), (tb, zb); plot_title="bayesian comparison", ylab="Bloch coordinates", labels=pairs, colorpairs=true)
@@ -844,7 +848,7 @@ green(text; title="Note") = Markdown.MD(Markdown.Admonition("correct", title, [t
 red(text; title="Note") = Markdown.MD(Markdown.Admonition("danger", title, [text]))
 
 # ╔═╡ b966b51c-e9cd-4696-a3b1-15ecb9d3808e
-tan(text; title="Note") = Markdown.MD(Markdown.Admonition("warning", title, [text]))
+tann(text; title="Note") = Markdown.MD(Markdown.Admonition("warning", title, [text]))
 
 # ╔═╡ f08bf969-d03f-47f9-9f5a-cddd18f8b109
 blue(text; title="Note") = Markdown.MD(Markdown.Admonition("note", title, [text]))
@@ -855,11 +859,8 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╔═╡ Cell order:
 # ╠═80ffb52c-a0dc-43d9-8282-e8acb51df4e0
 # ╟─595fc42b-943e-4a29-841a-cd36c90a2b55
-# ╟─483e648c-2ac3-46f7-b49b-a3109deec27d
+# ╠═483e648c-2ac3-46f7-b49b-a3109deec27d
 # ╟─5d30c7c1-4c53-40d2-8e73-b58db5697cfa
-# ╟─d4e7b79b-eb8c-48b3-9a94-650481fa8cb7
-# ╟─bef8c648-af4c-46c1-87b4-29f744f9aaf3
-# ╟─2059a835-925d-430d-aa0c-283a03f6ba2d
 # ╟─476f0b08-7d21-4010-b114-130e6dfbbae0
 # ╠═639931ed-0520-499c-ba1c-90b04e854ebd
 # ╟─68627f37-30c6-47c2-85e3-a031cf4a2e05
@@ -869,6 +870,9 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─75f1cc94-5222-42d5-8c0e-ceedb3c53d3b
 # ╠═bdf4c000-2845-4e2f-baf6-0d1161e477e3
 # ╠═9c78b702-3734-4341-92dd-b475e4dd717c
+# ╟─d4e7b79b-eb8c-48b3-9a94-650481fa8cb7
+# ╟─bef8c648-af4c-46c1-87b4-29f744f9aaf3
+# ╟─2059a835-925d-430d-aa0c-283a03f6ba2d
 # ╟─b6c73eea-d17c-49d4-a091-be10c8134718
 # ╟─4fc42181-a1d4-46d9-be76-7277b9a2d6a5
 # ╟─343161e9-e975-45b5-a444-b9f9f0b30cfb
@@ -896,7 +900,7 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─012e9206-f306-4776-a546-d6f7dcf00ef2
 # ╠═a55e5440-8a5c-484d-83db-2ee32495f89b
 # ╠═ca72e503-c34c-4627-aa6f-ddc6aa3292aa
-# ╟─275ffd8d-274b-4fab-946e-d9482fa340a6
+# ╠═275ffd8d-274b-4fab-946e-d9482fa340a6
 # ╟─e0cb7572-3d67-47e0-9482-70588a693d41
 # ╟─f870609e-f3bc-40e4-90fb-484e7b52db4b
 # ╠═43717946-c7f2-4f57-b516-9db669167587
@@ -909,9 +913,10 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─82b18884-28d4-4ecb-b21c-d3e57dd64870
 # ╟─462bad0d-3706-435b-9918-b1b1c2b5e320
 # ╠═576b3970-b370-4798-9e04-13321d97d587
+# ╠═52d62464-84cf-4589-9c2e-067fab53003a
 # ╟─cad58760-29af-428d-b22f-ccb7488053a1
 # ╠═13e06c7e-3a1c-4786-9ce4-de1d331e5a10
-# ╠═82d43f38-9cf6-4fee-bdc8-502234781678
+# ╟─82d43f38-9cf6-4fee-bdc8-502234781678
 # ╟─a0bb68b2-edde-4941-b034-c1fe8c7141ae
 # ╟─9af5502b-3639-419a-b113-64c11e70ead7
 # ╠═719cc6a7-946e-46e7-b8f0-fc16894c7e3e
@@ -922,12 +927,10 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╠═ec0a764b-b7b4-452f-bd67-062277fae5ea
 # ╠═e018009f-53d3-40b5-9cf9-6f26099f3504
 # ╠═4468cd55-6ac2-4ab8-af99-e521ca7a1672
-# ╠═497217ee-58b6-4de3-bd4f-40f11953aab2
-# ╠═de54710d-4fa9-42ec-a55e-bcaab917e998
 # ╟─64767210-f6d5-4d01-88bb-0e25e327fd83
 # ╠═a0cb40a2-aa44-405d-9fbb-bd5e59bed6b3
-# ╠═80fd7007-0a6e-4860-8174-40d4868fd71d
-# ╠═1dda6ec6-abc0-42d2-b6dc-53f6f7de31ba
+# ╟─80fd7007-0a6e-4860-8174-40d4868fd71d
+# ╟─1dda6ec6-abc0-42d2-b6dc-53f6f7de31ba
 # ╟─e7ffdfb4-622e-4248-a71b-907ea1cbb8a5
 # ╟─2b7aa36e-e64a-4839-875e-2c472763cb80
 # ╟─7baa7a79-090e-4318-982f-6c1982f82a58
@@ -948,5 +951,5 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─093383f1-d7a5-48c6-9927-4e42d158cc3d
 # ╟─5ed525a9-c4b6-44d6-8ebf-6c86190a8992
 # ╟─b966b51c-e9cd-4696-a3b1-15ecb9d3808e
-# ╟─f08bf969-d03f-47f9-9f5a-cddd18f8b109
+# ╠═f08bf969-d03f-47f9-9f5a-cddd18f8b109
 # ╟─d7c1fd28-5780-4efd-b085-4f1f797a3f09

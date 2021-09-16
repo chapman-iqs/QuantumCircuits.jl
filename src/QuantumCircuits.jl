@@ -10,7 +10,7 @@ sand(a,b) = a*b*a';
 
 
 
-function bayesian(T::Tuple, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[], td=0.0, sample=true, heterodyne=false)
+function bayesian(T::Tuple, ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[], td=0.0, sample=true, heterodyne=false)
 	ts = range(first(T), last(T), step=dt)
 	feedback = applicable(H0, ts[1], [1])
 	rsize = length(Ctups)
@@ -62,7 +62,7 @@ and small dt.  [Physical Review A **92**, 052306 (2015)]
   - (t, ρ(t)::Operator) -> (ρ(t+dt)::Operator, rlist::Float64...)
 
 """
-function meas(dt::Float64, H0, J0::Array, Ctups; rdo=Array[], ts=[], td=0, sample=true, het=false)
+function meas(dt::Float64, H0, J0, Ctups; rdo=Array[], ts=[], td=0, sample=true, het=false)
 
 	feedback = applicable(H0, ts[1], [1])
 	sim = (length(rdo) == 0)
@@ -72,7 +72,11 @@ function meas(dt::Float64, H0, J0::Array, Ctups; rdo=Array[], ts=[], td=0, sampl
 	gks = Function[]
 
 	H = length(methods(H0)) > 0 ? H0 : t -> H0 # if H0 is already a function of t, set H = H0; if H0 = const, define h(t) a constant function of t
-	J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0) # same, for each element of J0
+	# J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0) # same, for each element of J0
+	J = []
+	for (j, Γ) in J0
+		push!(J, length(methods(j)) > 0 ? √Γ * j : (t -> √Γ * j) ) end
+
 	C = []
 	for (c, τm, η) in Ctups
 		push!(C, length(methods(c)) > 0 ? (c,τm,η) : (t -> c,τm,η) ) end
@@ -281,21 +285,28 @@ Arguments:
 
 T :: tuple (ti,tf)
 ρ0 :: initial density matrix
-H :: time-dependent Hamiltonian
-J :: deterministic collapse operators
-C :: stochastic collapse operators
+H :: (time-dependent) Hamiltonian
+J :: array of tuples (j, Γ) representing decoherence channel j at rate Γ
+C :: array of tuples (c, τ, η) representing measurement of c with timescale τ and collection efficiency η
 
 Keyword Arguments:
 
 dt :: time step; default dt=1e-4
-dy :: record; default dy=[], i.e. simulation generates record time series.
-            record should be input in the shape [dy_1,...,dy_Nc] given
+r :: record; default r=[], i.e. simulation generates record by randomly sampling distribution.
+            record should be input in the shape [r_1,...,r_Nc] given
             length(C)=Nc collapse operators. Records should have shape
-            dy_c[t] indexing the mth trajectory at time T[n]
+            r_m[i] indexing the mth trajectory at time ts[i], where
+			ts = range(first(T), last(T), step=dt)
 fn : ρ → Any :: eval function (e.g. to return expectation values instead of density matrices)
+
+Returns: (ts, ρs, r)
+
+ts :: list of simulation times
+ρs :: fn(ρ) at each simulation time
+r :: input OR simulated record, depending on value of keyword argument r
 """
 
-function rouchon(T, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
+function rouchon(T, ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
     ts = range(first(T), last(T), step=dt)
     Id = identityoperator(ρ.basis_l)
     Nt = length(ts)
@@ -305,7 +316,10 @@ function rouchon(T, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
     ρs = Any[]
 
     H = length(methods(H0)) > 0 ? H0 : t -> H0
-    J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0)
+    # J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0)
+	J = []
+	for (j, Γ) in J0
+		push!(J, length(methods(j)) > 0 ? √Γ * j : (t -> √Γ * j) ) end
 	C = []
 	for (i, (c, τm, η)) in enumerate(Ctups)
 		m = c * sqrt(η / 2τm)
@@ -317,7 +331,7 @@ function rouchon(T, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
 	sim = (length(r) == 0)
 	dy = []
 	dW = []
-	dist = Normal(0, dt)
+	dist = Normal(0, √dt)
 
 	for (i, (c, τm, η)) in enumerate(Ctups)
 		if sim # randomly sample noise time series for EACH stochastic collapse operator C
@@ -328,8 +342,7 @@ function rouchon(T, ρ, H0, J0::Array, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
 	end
 
 
-    for n in 1:Nt
-        t = ts[n]
+    for (n, t) in enumerate(ts)
         M = Id - im * H(t) * dt
 
         # iterate over deterministic collapse operators J
