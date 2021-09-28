@@ -18,6 +18,8 @@ begin
 	cd("/Users/sachagreenfield/Desktop/GitHub/QuantumCircuits.jl")
 	import Pkg
 	Pkg.activate(".")
+	
+	using PlutoUI
 	using Random
 	using Statistics
 	using Distributions
@@ -31,6 +33,9 @@ md"""
 
 In this interactive notebook, we'll look at properties and dynamics of coherent states, which are key to understanding superconducting qubit readout. This notebook is based on unpublished notes [1].
 """
+
+# ╔═╡ 3dfd0a4f-ed67-4c19-9fdb-98b3b96c62d1
+TableOfContents()
 
 # ╔═╡ db847000-8785-4bcb-9f93-db82f6ead06d
 md"""
@@ -280,22 +285,20 @@ md"""
 In the following discussion, we assume the cavity is driven on resonance ($\Delta = 0$) and look at steady state values of qubit evolution parameters.
 """
 
-# ╔═╡ 61e73b8f-1ee6-4a5c-aa11-beb85bdd80d1
-
-
 # ╔═╡ 5a86ea71-0684-476f-8d5d-ee065b43c92f
 let
 	ε0 = 1 # MHz
-	κ = 5 # MHz
-	χ = 0.2 # MHz
+	κ = 2.5 # MHz
+	χ = 0.1 # MHz
 	Δ = 0
-	global η = 1
+	global ϕ = 0
+	global η = 0.5
 	global ΩR = 0
 	
 	global ωs = 2χ * abs(2ε0 / κ)^2
 	global Γ = 8 * (χ^2) * abs(2ε0 / κ)^2/ κ
 	
-	global ω̃q = (1 - η) * ωs
+	global Δω̃q = (1 - η) * ωs
 	global Γ̃ = (1 - η) * Γ
 	global τ = 1/(2Γ)
 	
@@ -304,19 +307,6 @@ let
 
 	md" 🌀 qubit / cavity parameters"
 end
-
-# ╔═╡ a3ec8af8-9f28-468a-8d9f-286c66e69164
-let
-	ε0 = 1 # MHz
-	κ = 5 # MHz
-	χ = 0.2 # MHz
-	Δ = 0
-	
-	κ * imag(αpss' * αmss) + real(ε0 * (αpss - αmss))
-end
-
-# ╔═╡ 0ec0004b-92dc-451b-bc74-54a8d44d85a5
-ωs
 
 # ╔═╡ ebfe6948-64be-4190-8470-d5e196ee43ec
 md"""
@@ -491,15 +481,23 @@ end
 # ╔═╡ 682b7883-fb96-4ebb-a196-5d85c5f91418
 begin
 	# η = 0 evolution
-	J0ss = [(σz, Γ)]
+	J0ss = [(σz, 2Γ)]
 	C0ss = []
 	H0ss = (ΩR / 2) * σy + (ωs / 2) * σz
 	
 	# stochastic evolution
-	Jss = [(σz, Γ̃)]
-	Css = [(σz, τ, η), (im*σz, τ, η)];
-	Hss = (ΩR / 2) * σy + (ω̃q / 2) * σz
+	Jss = [(σz, 2Γ̃)]
+	Css = [(σz, τ, η, ϕ), (σz, τ, η, ϕ + π/2)];
+	Hss = (ΩR / 2) * σy + (Δω̃q / 2) * σz
 	md" 🌀 evolution Kraus operators (`H`, `C`, `J`)"
+end
+
+# ╔═╡ 4c61ada7-be02-4399-af7b-e4d6ce9403b0
+begin
+	ρ0 = dm((spindown(q) + spinup(q))/√2) # initial state
+	Δt = 1e-3  # integration time-step
+	tf = 2τ
+	md" 🌀 simulation parameters"
 end
 
 # ╔═╡ cd1f1146-0b21-4b01-89de-e8bf67ed7867
@@ -680,6 +678,17 @@ end
 # ╔═╡ 3274ad19-1b27-4090-8aee-ef8c148b5e8e
 expects = ρ -> collect(real(expect(ρ, s)) for s in [σx,σy,σz,ρ]) # ρ -> [<x>,<y>,<z>,<ρ>]
 
+# ╔═╡ f45d3d31-decc-4517-9bfd-494604299d75
+begin
+	Random.seed!(1)
+	sol_ens = ensemble(bayesian, (0,tf), ρ0, Hss, Jss, Css; dt=Δt, N=10)
+	
+	tens = sol_ens[1]
+	evs = mean(collect(map(ρs -> expects.(ρs), sol_ens[2])))
+	(xens,yens,zens,ρens) = [map(x -> x[i], evs) for i in 1:4]
+	md" 🔻 Simulate ensemble"
+end
+
 # ╔═╡ 3e789d78-38f8-41c0-b2ae-b230849be534
 function blochs(sol)
 	(tt, ρt, _) = sol
@@ -694,32 +703,18 @@ end
 
 # ╔═╡ 3cc5e5ea-7ad4-4dc3-b478-06f5ada3cb1a
 begin
-	ρ0 = dm((spindown(q) + spinup(q))/√2) # initial state
-	Δt = 1e-3  # integration time-step
-	
 	Random.seed!(1)
-	solss = bayesian((0, 4τ), ρ0, H0ss, J0ss, C0ss; dt=Δt)
+	solss = bayesian((0, tf), ρ0, H0ss, J0ss, C0ss; dt=Δt)
 	
 	(tη0,xη0,yη0,zη0,ρη0) = blochs(solss)
 	
 	md"🔻 simulate η = 0"
 end
 
-# ╔═╡ f45d3d31-decc-4517-9bfd-494604299d75
-begin
-	Random.seed!(1)
-	sol_ens = ensemble(bayesian, (0,4τ), ρ0, Hss, Jss, Css; dt=Δt, N=10)
-	
-	tens = sol_ens[1]
-	evs = mean(collect(map(ρs -> expects.(ρs), sol_ens[2])))
-	(xens,yens,zens,ρens) = [map(x -> x[i], evs) for i in 1:4]
-	md" 🔻 Simulate ensemble"
-end
-
 # ╔═╡ 8a9c8844-0554-4992-bf92-016f46c0e2df
 begin
 	Random.seed!(1)
-	sol = bayesian((0, 4τ), ρ0, H0, J0, C0; dt=Δt, heterodyne=true)
+	sol = bayesian((0, 4τ), ρ0, H0, J0, C0; dt=Δt)
 	
 	(ttη0,xxη0,yyη0,zzη0,ρρη0) = blochs(solss)
 	
@@ -757,6 +752,9 @@ end
 # ╔═╡ 67d7fdb7-145f-42f3-8dec-cb6fc8bb3018
 let
 	close("all")
+	
+	# Plot phase vs. detuning Δ ---------------------------------------------------
+	
 	subplot(2, 2, 1)
 	
 	αp_list = αp.(Δs)
@@ -766,27 +764,29 @@ let
 	plot(Δs, angle.(αm_list), color=colors[4], label=L"\alpha_-")
 	plot([Δ,Δ], [-3.0,-0.2], linestyle="dashed", color="red")
 	
-
-
-	ax = gca()
-	ax.set_xticks(range(-4,4,step=1))
-	ax.grid()
+	ax1 = gca()
+	ax1.set_xticks(range(-4,4,step=1))
+	ax1.grid()
 	
-    ax.set_xlabel(string(L"$\Delta$", " (MHz)"))
+    ax1.set_xlabel(string(L"$\Delta$", " (MHz)"))
     title(string("Phase: ArcTan( Re ", L"\alpha_\pm", "/ Im ", L"\alpha_\pm", ")"))
     legend()
     gcf()
+	
+	
+	
+	# Plot amplitude vs. detuning Δ ------------------------------------------------
 	
 	subplot(2, 2, 2)
 	plot(Δs, abs.(αp_list ), color=colors[2], label=L"\alpha_+")
 	plot(Δs, abs.(αm_list ), color=colors[4], label=L"\alpha_-")
 	plot([Δ,Δ], [0.2,1.0], linestyle="dashed", color="red")
 	
-	ax = gca()
-	ax.set_xticks(range(-4,4,step=1))
-	ax.grid()
+	ax2 = gca()
+	ax2.set_xticks(range(-4,4,step=1))
+	ax2.grid()
 	
-	ax.set_xlabel(string(L"$\Delta$", " (MHz)"))
+	ax2.set_xlabel(string(L"$\Delta$", " (MHz)"))
 	
     # xlabel(string(L"$\Delta$", " (MHz)"))
     # ylabel(string("Amplitude ", L"|\alpha_\pm|"), loc="top")
@@ -794,16 +794,20 @@ let
     legend()
     gcf()
 	
+	# Plot α in complex plane ---------------------------------------------------
+	
 	subplot(2, 2, 3) 
 	plot(real.(αp_list), imag.(αp_list), color="gray")
 	plot([real(αp(Δ))], [imag(αp(Δ))], color=colors[2], marker="o", label=L"\alpha_+")
 	plot([real(αm(Δ))], [imag(αm(Δ))], color=colors[4], marker="o", label=L"\alpha_-")
 	
-			tight_layout()
+	tight_layout()
 	
-	ax = gca()
+	ax3 = gca()
 	# ax.set_xticks(range(-2,2,step=1))
-	ax.grid()
+	ax3.set_xlim([-1.1, 1.1]) 
+	ax3.set_ylim([-1.1, 1.1]) 
+	ax3.grid()
 	
     xlabel(string("Re", L"\alpha_\pm"))
     ylabel(string("Im", L"\alpha_\pm"))
@@ -1198,6 +1202,7 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╔═╡ Cell order:
 # ╠═4c45fe3e-cd69-11eb-20cd-7bfb98c040cf
 # ╟─377a3336-20bd-4baa-a033-af8bbc8668a8
+# ╠═3dfd0a4f-ed67-4c19-9fdb-98b3b96c62d1
 # ╟─db847000-8785-4bcb-9f93-db82f6ead06d
 # ╟─b7be6342-01f9-4afd-9250-27f0479ed5c5
 # ╟─306f55d1-fd48-4830-ba0a-b54ca5dccf82
@@ -1205,8 +1210,8 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─c681b1d2-a32b-4c10-bc80-6447368f13eb
 # ╟─d5b3318e-a1a8-48c2-baf7-92b398902aff
 # ╟─ce3f9a90-70ed-4d73-b7ac-e61791eb1aa9
-# ╠═543b95ab-589b-4523-9bf5-b955d249699e
-# ╠═9e816960-3731-4b98-96c8-9aa689bdf1ac
+# ╟─543b95ab-589b-4523-9bf5-b955d249699e
+# ╟─9e816960-3731-4b98-96c8-9aa689bdf1ac
 # ╟─83f4d601-33f2-4c3d-92c4-37231d55cae3
 # ╟─54e9278d-7757-4af9-968b-c78dfbe04758
 # ╟─91e5577b-fe11-4d8e-b37e-813a81621385
@@ -1221,7 +1226,7 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─c728af0d-72e3-4596-9f27-01f82fe86437
 # ╟─11838257-1e11-484d-831e-10eeb28abb6d
 # ╟─a86b6204-1a3a-45e8-96e6-21dd9369f059
-# ╟─0f1146c2-2675-492f-883d-d6a353aab727
+# ╠═0f1146c2-2675-492f-883d-d6a353aab727
 # ╟─57a11094-5c9b-44ad-9636-e729bc407ebe
 # ╟─ca2e2708-789b-4a95-ba3f-0402f93cb84e
 # ╟─f5719cfb-1acf-4f87-b12e-a0ed65f635d5
@@ -1241,14 +1246,12 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─e8299f27-e74b-47d1-8349-7e28c3ea4495
 # ╟─ec64b4d3-7631-4a1e-af3e-cf895f2fd922
 # ╟─4e368417-1107-45af-9af8-10fc16eaabe5
-# ╠═a3ec8af8-9f28-468a-8d9f-286c66e69164
-# ╠═61e73b8f-1ee6-4a5c-aa11-beb85bdd80d1
-# ╠═0ec0004b-92dc-451b-bc74-54a8d44d85a5
-# ╠═5a86ea71-0684-476f-8d5d-ee065b43c92f
-# ╠═682b7883-fb96-4ebb-a196-5d85c5f91418
-# ╠═3cc5e5ea-7ad4-4dc3-b478-06f5ada3cb1a
-# ╠═5eb98909-4d69-4e4e-a7b0-70a1bc7e8874
-# ╠═f45d3d31-decc-4517-9bfd-494604299d75
+# ╟─5a86ea71-0684-476f-8d5d-ee065b43c92f
+# ╟─682b7883-fb96-4ebb-a196-5d85c5f91418
+# ╟─4c61ada7-be02-4399-af7b-e4d6ce9403b0
+# ╟─3cc5e5ea-7ad4-4dc3-b478-06f5ada3cb1a
+# ╟─5eb98909-4d69-4e4e-a7b0-70a1bc7e8874
+# ╟─f45d3d31-decc-4517-9bfd-494604299d75
 # ╠═05b4b92a-d068-4251-a8fa-99970a27977d
 # ╠═28377197-47bc-49cf-81a0-f8e3023bd640
 # ╟─ebfe6948-64be-4190-8470-d5e196ee43ec
@@ -1266,9 +1269,9 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╠═c2085fde-2ec3-4d27-8aca-9b6ecc8218b1
 # ╠═c0e189dc-26cc-4bbe-9b72-aa681dd57e46
 # ╠═dc9478a2-0532-4b18-bd6e-2a0942eef585
-# ╠═ec327412-51bd-47f8-b40e-b89b4679dc90
-# ╠═cd1f1146-0b21-4b01-89de-e8bf67ed7867
-# ╠═8a9c8844-0554-4992-bf92-016f46c0e2df
+# ╟─ec327412-51bd-47f8-b40e-b89b4679dc90
+# ╟─cd1f1146-0b21-4b01-89de-e8bf67ed7867
+# ╟─8a9c8844-0554-4992-bf92-016f46c0e2df
 # ╠═79803729-7f3c-4473-a84f-1f02b9246e1e
 # ╟─02d2a1f6-12af-4345-b42a-db2b11e2a883
 # ╟─498bfa13-4278-4808-b1d6-279eabcd9ed8

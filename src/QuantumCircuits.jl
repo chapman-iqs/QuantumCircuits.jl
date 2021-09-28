@@ -10,14 +10,14 @@ sand(a,b) = a*b*a';
 
 
 
-function bayesian(T::Tuple, ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[], td=0.0, sample=true, heterodyne=false)
+function bayesian(T::Tuple, ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[], td=0.0, sample=true)
 	ts = range(first(T), last(T), step=dt)
 	feedback = applicable(H0, ts[1], [1])
 	rsize = length(Ctups)
 
 	return feedback ?
-			trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, td=td, sample=sample, het=heterodyne), ts, ρ, td; fn=fn, rsize=rsize, dt=dt, het=heterodyne) :
-			trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, sample=sample, het=heterodyne), ts, ρ; fn=fn, rsize=rsize, dt=dt, het=heterodyne)
+			trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, td=td, sample=sample), ts, ρ, td; fn=fn, rsize=rsize, dt=dt) :
+			trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, sample=sample), ts, ρ; fn=fn, rsize=rsize, dt=dt)
 
 end
 
@@ -62,7 +62,7 @@ and small dt.  [Physical Review A **92**, 052306 (2015)]
   - (t, ρ(t)::Operator) -> (ρ(t+dt)::Operator, rlist::Float64...)
 
 """
-function meas(dt::Float64, H0, J0, Ctups; rdo=Array[], ts=[], td=0, sample=true, het=false)
+function meas(dt::Float64, H0, J0, Ctups; rdo=Array[], ts=[], td=0, sample=true)
 
 	feedback = applicable(H0, ts[1], [1])
 	sim = (length(rdo) == 0)
@@ -83,7 +83,7 @@ function meas(dt::Float64, H0, J0, Ctups; rdo=Array[], ts=[], td=0, sample=true,
 
 	for ctup in C
 		if sim && sample
-			push!(ros, readout(dt, ctup, het)) end
+			push!(ros, readout(dt, ctup)) end
 		push!(gks, gausskraus(dt, ctup))
 	end
 
@@ -121,11 +121,9 @@ function meas(dt::Float64, H0, J0, Ctups; rdo=Array[], ts=[], td=0, sample=true,
 end
 
 
-function readout(dt, (c, τm, η), het::Bool)
+function readout(dt, (c, τm, η))
     dist = Normal(0, sqrt(τm/dt))
-	return het ?
-			(t, ρ) -> expect(ρ, c(t)) + (rand(dist) + im*rand(dist))/√2 :
-			(t, ρ) -> real(expect(ρ, c(t)) + rand(dist))
+	(t, ρ) -> real(expect(ρ, c(t)) + rand(dist))
 end
 
 function gausskraus(dt, (c, τm, η))
@@ -138,11 +136,11 @@ function gausskraus(dt, (c, τm, η))
 end
 
 
-@inline function trajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, rsize=1, dt=1e-4, het=false)
+@inline function trajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, rsize=1, dt=1e-4)
 
 	# init
     ρ0 = ρ
-    r0 = het ? [0.0im for i in 1:rsize] : [0.0 for i in 1:rsize]
+    r0 = [0.0 for i in 1:rsize]
     ρs = [fn(ρ0)]
     recs = [r0]
 
@@ -157,11 +155,11 @@ end
     return (ts, ρs, recs)
 end
 
-@inline function trajectory(inc::Function, ts, ρ, td; fn::Function=ρ->ρ, rsize=1, dt=1e-4, het=false)
+@inline function trajectory(inc::Function, ts, ρ, td; fn::Function=ρ->ρ, rsize=1, dt=1e-4)
 
 	# init
 	ρ0 = ρ
-	r0 = het ? [0.0im for i in 1:rsize] : [0.0 for i in 1:rsize]
+	r0 = [0.0 for i in 1:rsize]
 	ρs = [fn(ρ0)]
 	recs = [r0]
 
@@ -354,8 +352,8 @@ function rouchon(T, ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
 
         # initialize dy value, if simulation
         if sim
-            for c in 1:Nc
-                dy[c][n] = real(tr(C[c](t) * ρ + ρ * C[c](t)') * dt) + dW[c][n]
+            for (i, (c, τm, η)) in enumerate(Ctups)
+                dy[i][n] = (real(tr(C[i](t) * ρ + ρ * C[i](t)') * dt) + dW[i][n])
             end
         end
 
