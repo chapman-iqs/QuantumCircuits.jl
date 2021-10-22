@@ -152,7 +152,7 @@ end
 
     recs = collect(eachrow(hcat(recs...)))
 
-    return (ts, ρs, recs)
+    return solution(ts, ρs, recs)
 end
 
 @inline function trajectory(inc::Function, ts, ρ, td; fn::Function=ρ->ρ, rsize=1, dt=1e-4)
@@ -161,7 +161,9 @@ end
 	ρ0 = ρ
 	r0 = [0.0 for i in 1:rsize]
 	ρs = [fn(ρ0)]
-	recs = [r0]
+	recs = [[] for i in 1:rsize]
+	for (i, r) in enumerate(r0)
+		push!(recs[i], r) end
 
 	# find time-delay in terms of indices
 	td_index = argmin(abs.(ts .- td))
@@ -171,22 +173,24 @@ end
 		rd = r0
 		ρ, rs = inc(t, ρ, rd)
 		push!(ρs, fn(ρ))
-		push!(recs, rs)
+		for (i, r) in enumerate(rs)
+			push!(recs[i], r) end
 	end
 
 	# after feedback buffer is filled
 	for i in (td_index + 1):length(ts)
 		t = ts[i]
 		# rd uses r0 as placeholder if no time delay, since current readout will come from inc
-		rd = td_index == 1 ? r0 : recs[i - (td_index - 1)]
+		rd = (td_index == 1) ? r0 : [r[i - (td_index - 1)] for r in recs]
         ρ, rs = inc(t, ρ, rd)
         push!(ρs, fn(ρ))
-        push!(recs, rs)
+		for (i, r) in enumerate(rs)
+			push!(recs[i], r) end
     end
 
-    recs = collect(eachrow(hcat(recs...)))
 
-    return (ts, ρs, recs)
+	return solution(ts, ρs, recs)
+
 end
 
 
@@ -382,7 +386,7 @@ function rouchon(T, ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
 	end
 
 
-    return (ts, ρs, r)
+    return solution(ts, ρs, recs)
 end
 
 
@@ -410,8 +414,8 @@ function ensemble(solve, T, ρ0, H, J, C; dt=1e-4, record=[], N=10, onstart=x->x
     data = map(m -> begin
         onstart(m)
         r = length(record) >= m ? record[m] : []
-        tt, ρs, r = solve(T, ρ0, H, J, C; dt=dt, r=r, kwargs...)
-        return (ρs, r, tt)
+		s = solve(T, ρ0, H, J, C; dt=dt, r=r, kwargs...)
+        return (s.ρ, s.r, s.t)
     end, 1:N)
 
     trajectories = collect(ρs for (ρs, r) in data)
@@ -443,6 +447,12 @@ end
 
 function subselect(a=[]; n=2)
     a[filter(x -> x%n==0, eachindex(a))]
+end
+
+struct solution
+	t::Vector{Float64}
+	ρ
+	r
 end
 
 export δ, rouchon, ensemble, meas, trajectory, bayesian, coarse_grain, subselect

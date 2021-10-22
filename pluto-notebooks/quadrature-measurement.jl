@@ -213,7 +213,7 @@ Because $\Delta_i$ are in the intermediate frequency range, they can be demodula
 md"""
 ###### TERMINOLOGY OF HOMODYNE AND HETERODYNE
 
-In some sources (e.g. [2]), "homodyne" and "heterodyne" distinguish the number of quadratures detected for a single qubit, with "homodyne" indicating single-quadrature measurement and "heterodyne" indicating dual-quadrature measurement.
+In some sources (e.g. [2], [3]), "homodyne" and "heterodyne" distinguish the number of quadratures detected for a single qubit, with "homodyne" indicating single-quadrature measurement and "heterodyne" indicating dual-quadrature measurement.
 
 However, in the signal processing literature, "homodyne" and "heterodyne" distinguish the detuning of the LO from the signal frequency, as discussed above, with "homodyne" ("heterodyne") referring to (non-)zero detuning. Using this terminology, it is possible to make single- or dual-quadrature measurements using *either* homodyne *or* heterodyne detection. The difference lies only in whether the signal is brought down to DC analogically (by the mixer, in homodyne) or digitally (by the computer, in heterodyne).
 
@@ -241,170 +241,6 @@ begin
 	ε0 = 1 # MHz
 	Δs = range(-12, 12, step=0.2) # MHz
 	md" 🌀 parameters"
-end
-
-# ╔═╡ d6f73306-ab64-4fba-9955-55298ab566e5
-md"""
-
-Δ : -12
-$(@bind Δ html"<input type=range min=-12 max=12 step=0.25 value=0>")
-12
-
-"""
-
-# ╔═╡ aec1af64-50c5-4560-8461-e45bfc2f406d
-md"""
-Δ = $Δ
-"""
-
-# ╔═╡ b4cbaf81-c33c-42a9-ba79-437c32f47f70
-md" ## Qubit: Measurement backaction"
-
-# ╔═╡ de3fe955-780c-489f-9b6d-f3a8c3bf140d
-md" # Weak measurement demos"
-
-# ╔═╡ cd661d56-ebd0-4334-9ae6-47e738d11b54
-md" ### Reduced-qubit description"
-
-# ╔═╡ 88e1d88a-3565-42b3-9732-02862163a12b
-md"""
-In the reduced-qubit evolution, the measurement angle simply determines the quadrature of the backaction.
-"""
-
-# ╔═╡ 4284173a-be05-4b58-a8d9-7189301344fd
-begin
-	# Basis
-	q = SpinBasis(1//2)
-
-	# Operators, using convention that |-z> is ground state
-	σxq = sigmax(q)
-	σyq = sigmay(q)
-	σzq = sigmaz(q)
-	σpq = sigmap(q)
-	σmq = sigmam(q)
-	Iq = identityoperator(q)
-	
-	ground = spindown(q)
-	excited = spinup(q)
-
-	md"###### 🔶 Qubit Hilbert space operators "
-end
-
-# ╔═╡ 0cb753fc-ae4c-42f1-aa54-85641019ccd4
-begin
-	ρ0 = dm(spindown(q)) # initial state
-	dt = 1e-3  # integration time-step
-	md" ###### 🌀 Simulation parameters"
-end
-
-# ╔═╡ 99f2b351-877a-43c8-a508-d5688f92ae0c
-begin
-	ΩR0  = 2π # Rabi frequency (rad * MHz)
-	Γ0 = 0.15 # Measurement dephasing rate (MHz)
-	τ0 = 1/(2Γ0) #  Measurement collapse timescale (μs)
-	η0 = 1 # collection efficiency
-	md" ###### 🌀 System parameters"
-end
-
-# ╔═╡ ca554621-0fe8-4d7a-bd3f-acdf795648c4
-md"""
-
-ϕ = 0 
-$(@bind ϕc html"<input type=range min=0 max=16 step=1 value=0>") 
-ϕ = 2π
-
-"""
-
-# ╔═╡ fe1986ff-00c7-4b9f-8d20-9a38c85e2a28
-begin
-	ϕ = ϕc * (π/8)
-	md" ϕ = $(ϕc/8) π "	
-end
-
-# ╔═╡ de277991-5f34-4906-a9bb-b1832131b45f
-md"""
-
-ϕ = 0 
-$(@bind ϕcd html"<input type=range min=0 max=16 step=1 value=0>") 
-ϕ = 2π
-
-"""
-
-# ╔═╡ eb1ac4e6-5bc3-4c67-85b0-e4be923362a4
-begin
-	ϕd = ϕcd * (π/8)
-	md" ϕ = $(ϕcd/8) π "	
-end
-
-# ╔═╡ 259ed22f-b0c0-4fbe-9c6b-97a8730b6b14
-begin
-	H0 = ΩR0*σyq/2
-	J0 = [(σzq, ((1-η0)*Γ0))]
-	C0s = [(exp(im * ϕ) * σzq, τ0, η0)]
-	C0d = [(exp(im * ϕd) * σzq, τ0, η0/2), (exp(im * (ϕd + π/2)) * σzq, τ0, η0/2)]
-	md" ###### 💢 Kraus operators"
-end
-
-# ╔═╡ ede93004-ef9e-461f-b4ea-062f9d7879f3
-md"""
-### Qubit-resonator description
-"""
-
-# ╔═╡ 5e0a5ac0-231d-4d8e-b516-b37918c75d2d
-begin
-	Nfock = 15 # fock space dimension cutoff
-	Δt = 1e-3 # integration time step
-	md" ###### 🌀 Simulation parameters"
-end
-
-# ╔═╡ 603e6b49-1b47-409e-995b-4f3fa44f5e0b
-begin
-	# carrier frequencies ----------------------------------------------------------
-	
-	ωr = 2π * (6.67e3) # rad MHz; bare resonator frequency
-	ωε = 2π * (6.67e3)# rad MHz; resonator readout pulse carrier frequency
-	ωq = 2π * (5.56e3) # rad MHz; bare qubit frequency
-    ωR = 2π * (5.56e3) # 2π*(5.559871e3) # rad MHz; qubit drive carrier frequency
-	
-	
-	# detunings --------------------------------------------------------------------
-	
-	Δc = 0 # ωr - ωε # cavity readout pulse from bare cavity frequency
-	Δq = 0 # ωq - ωR # Rabi drive from bare qubit frequency
-	
-	
-	# envelopes --------------------------------------------------------------------
-	
-	ΩR = 2π * (0.4) # rad MHz; Rabi drive
-	ε = 2π * (0.7) # rad MHz; cavity readout drive envelope
-	χ = 2π * (-0.47) # rad MHz; dispersive shift / 2
-	
-	
-	# rates ------------------------------------------------------------------------
-	
-	T1 = 160 # μs; qubit energy decay time 
-	γ1 = 1/T1 # qubit energy decay rate
-	
-	Tϕ = 16 # μs; cavity-induced dephasing time
-	γϕ = 1/Tϕ # cavity-induced dephasing rate
-	
-	κ = 2π * (1.56) # rad Hz; cavity linewidth / decay rate
-	τ = 1/(2κ) # measurement collapse time
-	
-	
-	# measurement parameters -------------------------------------------------------
-	
-	θR = π/2 # Rabi-drive axis angle in x-y plane, w.r.t. x-axis
-	φ = 0 # measurement quadrature
-	η = 1 # signal collection efficiency
-	
-	
-	# initial state ----------------------------------------------------------------
-	
-	θ0 = π/2 # initial qubit polar angle
-	ϕ0 = 0 # initial qubit azimuthal angle
-	
-	md" ###### 🌀 Cavity / qubit parameters"
 end
 
 # ╔═╡ bddc09b0-f90a-40e5-be77-d1afa4309fa4
@@ -511,6 +347,96 @@ let
 	
 end
 
+# ╔═╡ d6f73306-ab64-4fba-9955-55298ab566e5
+md"""
+
+Δ : -12
+$(@bind Δ html"<input type=range min=-12 max=12 step=0.25 value=0>")
+12
+
+"""
+
+# ╔═╡ aec1af64-50c5-4560-8461-e45bfc2f406d
+md"""
+Δ = $Δ
+"""
+
+# ╔═╡ b4cbaf81-c33c-42a9-ba79-437c32f47f70
+md" ## Qubit: Measurement backaction"
+
+# ╔═╡ de3fe955-780c-489f-9b6d-f3a8c3bf140d
+md" # Weak measurement demos"
+
+# ╔═╡ cd661d56-ebd0-4334-9ae6-47e738d11b54
+md" ### Reduced-qubit description"
+
+# ╔═╡ 88e1d88a-3565-42b3-9732-02862163a12b
+md"""
+In the reduced-qubit evolution, the measurement angle simply determines the quadrature of the backaction.
+"""
+
+# ╔═╡ 4284173a-be05-4b58-a8d9-7189301344fd
+begin
+	# Basis
+	q = SpinBasis(1//2)
+
+	# Operators, using convention that |-z> is ground state
+	σxq = sigmax(q)
+	σyq = sigmay(q)
+	σzq = sigmaz(q)
+	σpq = sigmap(q)
+	σmq = sigmam(q)
+	Iq = identityoperator(q)
+	
+	ground = spindown(q)
+	excited = spinup(q)
+
+	md"###### 🔶 Qubit Hilbert space operators "
+end
+
+# ╔═╡ ca554621-0fe8-4d7a-bd3f-acdf795648c4
+md"""
+
+ϕ = 0 
+$(@bind ϕc html"<input type=range min=0 max=16 step=1 value=0>") 
+ϕ = 2π
+
+"""
+
+# ╔═╡ fe1986ff-00c7-4b9f-8d20-9a38c85e2a28
+begin
+	ϕ = ϕc * (π/8)
+	md" ϕ = $(ϕc/8) π "	
+end
+
+# ╔═╡ 073c34d3-a243-4560-9862-28f15b24e685
+md"""
+$\ket{\psi} = cos(\theta /2) \ket{0} + \sin(\theta/2) e^{i \phi} \ket{1}$
+"""
+
+# ╔═╡ de277991-5f34-4906-a9bb-b1832131b45f
+md"""
+
+ϕ = 0 
+$(@bind ϕcd html"<input type=range min=0 max=16 step=1 value=0>") 
+ϕ = 2π
+
+"""
+
+# ╔═╡ eb1ac4e6-5bc3-4c67-85b0-e4be923362a4
+begin
+	ϕd = ϕcd * (π/8)
+	md" ϕ = $(ϕcd/8) π "	
+end
+
+# ╔═╡ ede93004-ef9e-461f-b4ea-062f9d7879f3
+md"""
+### Qubit-resonator description
+"""
+
+# ╔═╡ 9d0fe6ee-aa00-43c8-b40f-937dd6024d74
+Nfock = 15 # fock space dimension cutoff
+
 # ╔═╡ 05b536fa-e464-4476-8c27-65ffe89d09a6
 begin
 	# Basis
@@ -534,129 +460,8 @@ begin
 	αp = a * zp
 	αm = a * zm
 	
-	# initial states
-	ρq = dm(normalize(cos(θ0/2) * ground + exp(im * ϕ0) * sin(θ0/2) * excited))
-	ρi = ρq ⊗ dm(fockstate(f, 0)) # initial qubit in ρq and cavity in vacuum
-	
 	md"###### 🔶 Qubit-resonator Hilbert space operators "
 end
-
-# ╔═╡ 409837dd-adf3-4d77-89f2-baca6a869e2b
-begin
-	# Hamiltonian -----------------------------------------------------------
-	Hc = Δc * (a' * a) # cavity 
-	Hq =  Δq * σz / 2 # qubit
-	Hqc = χ * (a' * a) * σz # cavity-qubit coupling
-	Hε = (ε / 2) * (a + a') # cavity (readout) drive
-	HR = (ΩR / 2) * (cos(θR) * σx + sin(θR) * σy) # qubit (Rabi) drive
-	
-	H = Hc + Hq + Hqc + Hε + HR
-	
-	# Lindblad & jump operators ---------------------------------------------------
-	J =	[(a, κ)]
-	# J = [(a, κ), (σm, γ1), (σz, γϕ/2)] # including T1, T2
-	
-	# single-quadrature measurement (phase-amplifying)
-	Cs = [(exp(im * φ) * a, τ, η)] 	
-	
-	# double-quadrature measurement (phase-preserving) 
-	Cd = [(exp(im * φ) * a, τ, η/2), (exp(im * (φ + π/2)) * a, τ, η/2)] 
-	
-	md" ###### 💢 Kraus operators"
-end
-
-# ╔═╡ c1e0ad96-5335-4f11-abe0-5b4f5274c36e
-md"""
-# References
-
-[1] P. Krantz, M. Kjaergaard, F. Yan, T. P. Orlando, S. Gustavsson, and W. D. Oliver, A Quantum Engineer’s Guide to Superconducting Qubits, Applied Physics Reviews 6, 021318 (2019).
-
-[2] P. Campagne-Ibarcq, Measurement Back Action and Feedback in Superconducting Circuits, 223 (n.d.).
-
-
-"""
-
-# ╔═╡ 7e62e6c6-aa3c-4350-901c-15d017b8db42
-md" # Utilities "
-
-# ╔═╡ 71acc211-c8b8-4059-8002-be14fff7d822
-expectsC(ops) = ρ -> collect(expect(ρ, s) for s in vcat(ops, ρ)) # ρ -> [<x>,<y>,<z>,<ρ>]
-
-# ╔═╡ 4de027ac-2080-499f-9a99-7ef3007e1384
-expects(ops) = ρ -> collect(real(expect(ρ, s)) for s in vcat(ops, ρ)) # ρ -> [<x>,<y>,<z>,<ρ>]
-
-# ╔═╡ 139565f9-0219-4939-a470-4252397dd6a0
-begin
-	Random.seed!(1)
-	sol1 = bayesian((0, 4τ0), ρ0, H0, J0, C0s; dt=dt)
-	
-	# collect outputs
-	tt = sol1[1]
-    ρt = sol1[2]
-	r = collect(sol1[3][1])
-	
-	# get expectation values
-	evs0 = expects([σxq, σyq, σzq]).(ρt);
-    xx,yy,zz,ρρ = [map(x -> x[i], evs0) for i in 1:4];
-	
-	md" ###### 🔻 Bayesian simulation (single-quadrature)"
-end
-
-# ╔═╡ 7396750e-693d-46da-bd3d-2f83b3e456c8
-begin
-	Random.seed!(1)
-	sol1d = bayesian((0, 4τ0), ρ0, H0, J0, C0d; dt=dt)
-	
-	# collect outputs
-	ttd = sol1d[1]
-    ρtd = sol1d[2]
-	rd1 = collect(sol1d[3][1])
-	rd2 = collect(sol1d[3][2])
-	
-	# get expectation values
-	evs0d = expects([σxq, σyq, σzq]).(ρtd);
-    xxd,yyd,zzd,ρρd = [map(x -> x[i], evs0d) for i in 1:4];
-	
-	md" ###### 🔻 Bayesian simulation (dual-quadrature)"
-end
-
-# ╔═╡ 55b946e9-20e2-4ea8-85e2-455dd9b6b8a1
-begin
-	Random.seed!(1)
-	sol2 = bayesian((0, 12), ρi, H, J, Cs; dt=Δt)
-	
-	# collect outputs
-	tt2 = sol2[1]
-    ρt2 = sol2[2]
-	rs = collect(sol2[3][1])
-	
-	# get expectation values
-	funcs = [σx, σy, σz, (a' * a), zp, zm]
-	funcsC = [αp, αm]
-	evs2 = expects(funcs).(ρt2)
-	evs2C = expectsC(funcsC).(ρt2)
-    xx2,yy2,zz2,nn2,zp2,zm2 = [map(x -> x[i], evs2) for i in 1:length(funcs)];
-	αpex2,αmex2 = [map(x -> x[i], evs2C) for i in 1:length(funcsC)];
-	
-	# calculate functions of exp. values
-	ρρ2 = 0.5 * (1 .+ xx2.^2 .+ yy2.^2 .+ zz2.^2)
-	αp2 = αpex2 ./ zp2
-	αm2 = αmex2 ./ zm2
-	
-	md" ###### 🔻 Bayesian simulation (single-quadrature)"
-end
-
-# ╔═╡ 865752f3-c563-4a6c-be2f-3dbe73d38406
-md"""
-
-t : $(first(tt2)) μs
-$(@bind i html"<input type=range min=1 max=12001 step=10 value=1>")
-$(last(tt2)) μs
-
-"""
-
-# ╔═╡ 9baf661a-feb9-463d-a75e-69848ad888ae
-md" t = $(tt2[i]) μs "
 
 # ╔═╡ aaf95d04-aeb2-47b4-99c6-9499fe27a33f
 md"""
@@ -669,6 +474,293 @@ $(last(tt2)) μs
 
 # ╔═╡ fcc6db99-6ff7-41d5-b2af-ff07899a0250
 md" t = $(tt2[j]) μs "
+
+# ╔═╡ c1e0ad96-5335-4f11-abe0-5b4f5274c36e
+md"""
+# References
+
+[1] P. Krantz, M. Kjaergaard, F. Yan, T. P. Orlando, S. Gustavsson, and W. D. Oliver, A Quantum Engineer’s Guide to Superconducting Qubits, Applied Physics Reviews 6, 021318 (2019).
+
+[2] P. Campagne-Ibarcq, Measurement Back Action and Feedback in Superconducting Circuits, 223 (n.d.).
+
+[3] J. Gambetta, A. Blais, M. Boissonneault, A. A. Houck, D. I. Schuster, and S. M. Girvin, Quantum Trajectory Approach to Circuit QED: Quantum Jumps and the Zeno Effect, Phys. Rev. A 77, 012112 (2008).
+
+
+
+"""
+
+# ╔═╡ 7e62e6c6-aa3c-4350-901c-15d017b8db42
+md" # Utilities "
+
+# ╔═╡ 989ba897-50b4-4d82-be56-6dcb439e8aca
+
+
+# ╔═╡ 3d1472b2-30ac-4237-ace3-00ad5f5768b6
+xyz(θ, ϕ) = (sin(θ) * cos(ϕ), sin(θ) * sin(ϕ), cos(θ))
+
+# ╔═╡ 76d5307b-f58b-4ab1-8ba5-b43491c54552
+begin
+	mutable struct traj
+		t::Vector{Float64}
+		x::Vector{Float64}
+		y::Vector{Float64}
+		z::Vector{Float64}
+		p::Vector{Float64}
+		r
+	end
+	
+	function traj(t, ρ, r)
+		x, y, z = [real(expect(σi, ρ)) for σi in (σx, σy, σz)]
+		p = real(expect.(ρ, ρ))
+		traj(t, x, y, z, p, r)
+	end
+	
+	function traj(sol::QuantumCircuits.solution)
+		t, ρ, r = (sol.t, sol.ρ, sol.r)
+		σs = (size(ρ[1]) == (2, 2)) ? (σxq, σyq, σzq) : (σx, σy, σz)
+		x, y, z =  [real(expect(σi, ρ)) for σi in σs] 
+		p = real(expect.(ρ, ρ))
+		traj(t, x, y, z, p, r)
+	end
+	
+	
+end
+
+# ╔═╡ 139565f9-0219-4939-a470-4252397dd6a0
+let
+	
+	# Parameters -------------------------------------------------------------------
+	
+	ρ0 = DenseOperator(0.5*(Iq + σxq)) # dm(spindown(q)) # initial state
+	dt = 1e-3  # integration time-step
+	
+	ΩR  = 0 #2π # Rabi frequency (rad * MHz)
+	Γ = 0.15 # Measurement dephasing rate (MHz)
+	τ = 1/(2Γ) #  Measurement collapse timescale (μs)
+	η = 1 # collection efficiency
+	
+	# Kraus operators --------------------------------------------------------------
+	
+	H = ΩR * σyq/2
+	J = [(σzq, ((1-η)*Γ))]
+	C = [(exp(im * ϕ) * σzq, τ, η)]
+	# Cd = [(exp(im * ϕd) * σzq, τ0, η0/2), (exp(im * (ϕd + π/2)) * σzq, τ0, η0/2)]
+	
+	Random.seed!(1)
+	sol = bayesian((0, 4τ), ρ0, H, J, C; dt=dt)
+	
+	global RQ = traj(sol)
+	
+
+	
+	md" ###### 🔻 Bayesian simulation (single-quadrature)"
+end
+
+# ╔═╡ b6ae1b65-aa9d-4d7e-b07e-f51ebdcd44b3
+let
+	
+	# Parameters -------------------------------------------------------------------
+	
+	ρ0 = dm(spindown(q)) # initial state
+	dt = 1e-3  # integration time-step
+	
+	ΩR  = 2π # Rabi frequency (rad * MHz)
+	Γ = 0.15 # Measurement dephasing rate (MHz)
+	τ = 1/(2Γ) #  Measurement collapse timescale (μs)
+	η = 1 # collection efficiency
+	
+	# Kraus operators --------------------------------------------------------------
+	
+	H = ΩR * σyq/2
+	J = [(σzq, ((1-η)*Γ))]
+	C = [(exp(im * ϕd) * σzq, τ, η/2), (exp(im * (ϕd + π/2)) * σzq, τ, η/2)]
+	
+	Random.seed!(1)
+	sol = bayesian((0, 4τ), ρ0, H, J, C; dt=dt)
+	
+	global RQ2 = traj(sol)
+	
+
+	
+	md" ###### 🔻 Bayesian simulation (single-quadrature)"
+end
+
+# ╔═╡ a823cf8d-8637-44b9-af2a-8feefd22d986
+begin
+	
+	mutable struct qr_traj
+		t::Vector{Float64}
+		
+		x::Vector{Float64}
+		y::Vector{Float64}
+		z::Vector{Float64}
+		
+		n::Vector{Float64}
+		ap::Vector{ComplexF64}
+		am::Vector{ComplexF64}
+		
+		p::Vector{Float64}
+		pr::Vector{Float64}
+		r
+	end
+	
+	
+	function qr_traj(sol::QuantumCircuits.solution)
+		t, ρ, r = (sol.t, sol.ρ, sol.r)
+		
+		# get expectation values
+		x, y, z =  [real(expect(σi, ρ)) for σi in (σx, σy, σz)] 
+		n, zpp, zmm = [real(expect(op, ρ)) for op in ((a' * a), zp, zm)] 
+		αpp, αmm = [expect(op, ρ) for op in (αp, αm)] 
+		p = real(expect.(ρ, ρ))
+
+		# calculate functions of exp. values
+		pq = 0.5 .* (1 .+ x.^2 .+ y.^2 .+ z.^2)
+		ap = αpp ./ zpp
+		am = αmm ./ zmm
+		
+		qr_traj(t, x, y, z, n, ap, am, p, pq, r)
+	end
+	
+end
+
+# ╔═╡ 55b946e9-20e2-4ea8-85e2-455dd9b6b8a1
+let
+	# Parameters -------------------------------------------------------------------
+	
+	Δt = 1e-3 # integration time step
+	
+	# carrier frequencies - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+# 	ωr = 2π * (6.67e3) # rad MHz; bare resonator frequency
+# 	ωε = 2π * (6.67e3)# rad MHz; resonator readout pulse carrier frequency
+# 	ωq = 2π * (5.56e3) # rad MHz; bare qubit frequency
+#     ωR = 2π * (5.56e3) # 2π*(5.559871e3) # rad MHz; qubit drive carrier frequency
+	
+	
+	# detunings - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	Δc = 0 # ωr - ωε # cavity readout pulse from bare cavity frequency
+	Δq = 0 # ωq - ωR # Rabi drive from bare qubit frequency
+	
+	
+	# envelopes - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	ΩR = 2π * (0.4) # rad MHz; Rabi drive
+	ε = 2π * (0.7) # rad MHz; cavity readout drive envelope
+	χ = 2π * (-0.47) # rad MHz; dispersive shift / 2
+	
+	
+	# rates - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	T1 = 160 # μs; qubit energy decay time 
+	γ1 = 1/T1 # qubit energy decay rate
+	
+	Tϕ = 16 # μs; cavity-induced dephasing time
+	γϕ = 1/Tϕ # cavity-induced dephasing rate
+	
+	κ = 2π * (1.56) # rad Hz; cavity linewidth / decay rate
+	τ = 1/(2κ) # measurement collapse time
+	
+	
+	# measurement parameters - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	θR = π/2 # Rabi-drive axis angle in x-y plane, w.r.t. x-axis
+	φ = 0 # measurement quadrature
+	η = 1 #1 # signal collection efficiency
+	
+	
+	# initial state  - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	θ0 = π/2 # initial qubit polar angle
+	ϕ0 = 0 # initial qubit azimuthal angle
+	
+	ρq = dm(normalize(cos(θ0/2) * ground + exp(im * ϕ0) * sin(θ0/2) * excited))
+	ρi = ρq ⊗ dm(fockstate(f, 0)) # initial qubit in ρq and cavity in vacuum
+	
+	
+	# Kraus operators -----------------------------------------------------------
+	
+	# Hamiltonian - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	Hc = Δc * (a' * a) # cavity 
+	Hq =  Δq * σz / 2 # qubit
+	Hqc = χ * (a' * a) * σz # cavity-qubit coupling
+	Hε = (ε / 2) * (a + a') # cavity (readout) drive
+	HR = (ΩR / 2) * (cos(θR) * σx + sin(θR) * σy) # qubit (Rabi) drive
+	
+	H = Hε + Hqc  # + HR # + Hc + Hq 
+	
+	
+	# Lindblad & jump operators - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	J =	[(a, κ)]
+	# J = [(a, κ), (σm, γ1), (σz, γϕ/2)] # including T1, T2
+	
+	# single-quadrature measurement (phase-amplifying)
+	C = [(exp(im * φ) * a, τ, η)] 	
+	
+	# double-quadrature measurement (phase-preserving) 
+	# Cd = [(exp(im * φ) * a, τ, η/2), (exp(im * (φ + π/2)) * a, τ, η/2)] 
+	
+	# Simulation ----------------------------------------------------------------
+	
+	Random.seed!(1)
+	sol = bayesian((0, 10), ρi, H, J, C; dt=Δt)
+	
+	global QR = qr_traj(sol)
+	
+	# # get expectation values
+	# funcs = [σx, σy, σz, (a' * a), zp, zm]
+	# funcsC = [αp, αm]
+	# evs2 = expects(funcs).(ρt2)
+	# evs2C = expectsC(funcsC).(ρt2)
+	# xx2,yy2,zz2,nn2,zp2,zm2 = [map(x -> x[i], evs2) for i in 1:length(funcs)];
+	# αpex2,αmex2 = [map(x -> x[i], evs2C) for i in 1:length(funcsC)];
+	
+# 	# calculate functions of exp. values
+# 	ρρ2 = 0.5 * (1 .+ xx2.^2 .+ yy2.^2 .+ zz2.^2)
+# 	αp2 = αpex2 ./ zp2
+# 	αm2 = αmex2 ./ zm2
+	
+	md" ###### 🔻 Bayesian simulation (single-quadrature)"
+end
+
+# ╔═╡ 865752f3-c563-4a6c-be2f-3dbe73d38406
+md"""
+
+t : $(first(QR.t)) μs
+$(@bind i html"<input type=range min=1 max=10010 step=10 value=10010>")
+$(last(QR.t)) μs
+
+"""
+
+# ╔═╡ 9baf661a-feb9-463d-a75e-69848ad888ae
+md" t = $(QR.t[i]) μs "
+
+# ╔═╡ 3604c61d-6cf4-4d6a-94ea-678c196d336e
+typeof(1.0 + im) == ComplexF64
+
+# ╔═╡ 52e2feca-5070-444d-aef6-c85c6404d391
+size(σxq) == (2,2)
+
+# ╔═╡ b136e6e0-6e88-4008-94bb-7756716e913e
+φdict = Dict("0" => 0, 
+				"π/8" => π/8, 
+				"π/4" => π/4,
+				"3π/8" => 3π/8,
+				"π/2" => π/2)
+
+# ╔═╡ dfb8774e-bb14-4f8b-9492-ecd2220e393d
+md"""
+### Old utilities
+"""
+
+# ╔═╡ 71acc211-c8b8-4059-8002-be14fff7d822
+expectsC(ops) = ρ -> collect(expect(ρ, s) for s in vcat(ops, ρ)) # ρ -> [<x>,<y>,<z>,<ρ>]
+
+# ╔═╡ 4de027ac-2080-499f-9a99-7ef3007e1384
+expects(ops) = ρ -> collect(real(expect(ρ, s)) for s in vcat(ops, ρ)) # ρ -> [<x>,<y>,<z>,<ρ>]
 
 # ╔═╡ 28c3789a-303e-4c08-83d2-95066828a1d7
 begin
@@ -807,6 +899,10 @@ end
 let
 	close("all")
 	
+	sim = RQ
+	
+	tt, xx, yy, zz, ρρ, r = (sim.t, sim.x, sim.y, sim.z, sim.p, sim.r[1])
+	
 	# Plot Bloch components vs. time -----------------------------------------
 	
 	subplot(2,2,1)
@@ -880,6 +976,11 @@ let
 	
 	subplot(2,2,1)
 	
+	sim = RQ2
+	
+	ttd, xxd, yyd, zzd, ρρd = sim.t, sim.x, sim.y, sim.z, sim.p
+	rd1, rd2 = sim.r
+	
     p = plot(ttd, xxd, color=colors[2], label=L"$x$", linewidth=0.8)
     plot(ttd, yyd, color=colors[4],label=L"$y$", linewidth=0.8)
     ax1 = gca()
@@ -949,6 +1050,11 @@ end
 let
 	close("all")
 	
+	sim = QR
+	
+	tt2, xx2, yy2, zz2, ρρ2 = (sim.t, sim.x, sim.y, sim.z, sim.pr)
+	nn2, αp2, αm2 = (sim.n, sim.ap, sim.am)
+	rs = sim.r[1]
 	
 	# Plot Bloch components vs. time ------------------------------------------
 	
@@ -985,7 +1091,7 @@ let
 	plot([tt2[i]], [nn2[i]], color="purple", marker="o")
 	
 	ax2 = gca()
-	ax2.set_yticks(range(0.0, 0.25,step=0.05))
+	# ax2.set_yticks(range(0.0, 0.25,step=0.05))
 	ax2.grid()
 	
 	xlabel("t (μs)")
@@ -993,7 +1099,7 @@ let
     title("Photon number")
 	
 	ax2.set_xlim([first(tt2), last(tt2)]) 
-    ax2.set_ylim([0, 0.3]) 
+    # ax2.set_ylim([0, 0.3]) 
 	
 	
 	tight_layout()
@@ -1357,7 +1463,7 @@ md"""
 # ╠═f230c876-f933-4ee4-a079-a66147dea73c
 # ╠═4c45fe3e-cd69-11eb-20cd-7bfb98c040cf
 # ╟─377a3336-20bd-4baa-a033-af8bbc8668a8
-# ╟─3edd54c6-4b52-41ff-a707-a6efce05e698
+# ╠═3edd54c6-4b52-41ff-a707-a6efce05e698
 # ╟─f24df928-22c4-4943-bc9c-218750fe4da7
 # ╟─3d17c4b0-e051-41b0-9f20-bb22c4db4398
 # ╟─3500ae58-7577-4af7-a458-5613310471d9
@@ -1384,7 +1490,7 @@ md"""
 # ╟─c2f7d614-0d49-4283-b574-c0713e41824a
 # ╟─b08e7d51-3e2c-431a-8471-12914bcd1384
 # ╟─3bc48dd3-363b-4dc8-8f9d-b3edc7700bce
-# ╟─e4f0d549-b9d2-48ef-bbe7-cd4731156c77
+# ╠═e4f0d549-b9d2-48ef-bbe7-cd4731156c77
 # ╟─58d845a6-45e7-450e-b6c2-009a605e1c7c
 # ╠═5702d0d1-6e34-469e-926b-c369dbde78b3
 # ╟─d44ea114-6e92-4790-978d-7286394e9506
@@ -1401,33 +1507,37 @@ md"""
 # ╟─cd661d56-ebd0-4334-9ae6-47e738d11b54
 # ╟─88e1d88a-3565-42b3-9732-02862163a12b
 # ╟─4284173a-be05-4b58-a8d9-7189301344fd
-# ╟─0cb753fc-ae4c-42f1-aa54-85641019ccd4
-# ╟─99f2b351-877a-43c8-a508-d5688f92ae0c
-# ╟─259ed22f-b0c0-4fbe-9c6b-97a8730b6b14
-# ╟─139565f9-0219-4939-a470-4252397dd6a0
+# ╠═139565f9-0219-4939-a470-4252397dd6a0
 # ╟─ca554621-0fe8-4d7a-bd3f-acdf795648c4
 # ╟─fe1986ff-00c7-4b9f-8d20-9a38c85e2a28
 # ╟─38d58263-6411-4189-9aca-95e99e7e558a
+# ╟─073c34d3-a243-4560-9862-28f15b24e685
 # ╟─df85f145-8739-44aa-9f1f-2b3ec699a4a4
-# ╟─7396750e-693d-46da-bd3d-2f83b3e456c8
+# ╠═b6ae1b65-aa9d-4d7e-b07e-f51ebdcd44b3
 # ╟─de277991-5f34-4906-a9bb-b1832131b45f
 # ╟─eb1ac4e6-5bc3-4c67-85b0-e4be923362a4
 # ╟─83ec507b-a0ea-48b9-bb9e-0e2c70e385a6
 # ╟─ede93004-ef9e-461f-b4ea-062f9d7879f3
+# ╟─9d0fe6ee-aa00-43c8-b40f-937dd6024d74
 # ╟─05b536fa-e464-4476-8c27-65ffe89d09a6
-# ╟─5e0a5ac0-231d-4d8e-b516-b37918c75d2d
-# ╟─603e6b49-1b47-409e-995b-4f3fa44f5e0b
-# ╟─409837dd-adf3-4d77-89f2-baca6a869e2b
-# ╟─55b946e9-20e2-4ea8-85e2-455dd9b6b8a1
+# ╠═55b946e9-20e2-4ea8-85e2-455dd9b6b8a1
 # ╟─865752f3-c563-4a6c-be2f-3dbe73d38406
 # ╟─9baf661a-feb9-463d-a75e-69848ad888ae
-# ╟─761b6c4f-17f7-4735-bcac-a980c559d838
+# ╠═761b6c4f-17f7-4735-bcac-a980c559d838
 # ╟─28c3789a-303e-4c08-83d2-95066828a1d7
 # ╟─aaf95d04-aeb2-47b4-99c6-9499fe27a33f
 # ╟─fcc6db99-6ff7-41d5-b2af-ff07899a0250
 # ╠═0aff657d-99b8-49dc-93f3-e3a3fe058e7c
 # ╟─c1e0ad96-5335-4f11-abe0-5b4f5274c36e
 # ╟─7e62e6c6-aa3c-4350-901c-15d017b8db42
+# ╠═989ba897-50b4-4d82-be56-6dcb439e8aca
+# ╠═3d1472b2-30ac-4237-ace3-00ad5f5768b6
+# ╠═76d5307b-f58b-4ab1-8ba5-b43491c54552
+# ╠═a823cf8d-8637-44b9-af2a-8feefd22d986
+# ╠═3604c61d-6cf4-4d6a-94ea-678c196d336e
+# ╠═52e2feca-5070-444d-aef6-c85c6404d391
+# ╠═b136e6e0-6e88-4008-94bb-7756716e913e
+# ╟─dfb8774e-bb14-4f8b-9492-ecd2220e393d
 # ╟─71acc211-c8b8-4059-8002-be14fff7d822
 # ╠═4de027ac-2080-499f-9a99-7ef3007e1384
 # ╟─b2235afc-1bc9-4cf4-ae21-6f535eb37e96

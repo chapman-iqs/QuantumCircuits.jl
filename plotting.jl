@@ -4,7 +4,7 @@
 
 
 
-@recipe function f(bs::BlochSphere; mesh = 30, ax = false, viewϕ = 0, vec = nothing, blochmark = false)
+@recipe function f(bs::BlochSphere; mesh=30, ax=false, viewϕ=0, vec=nothing, blochmark=false, blochmarkcolor="white")
 	xss, yss, zss = bs.args
 
 	xs = xss .* cos(viewϕ) .- yss .* sin(viewϕ)
@@ -112,7 +112,7 @@
 	if blochmark
 
 		marker := (:circle, 3.5)
-		markercolor := "black"
+		markercolor := blochmarkcolor
 		@series begin
 			[last(xs)], [last(ys)], [last(zs)]
 		end
@@ -184,7 +184,7 @@ end
 end
 
 
-@recipe function f(bp::BlochProjections; plottitle="Bloch trajectory cross-sections", vec=nothing, blochmark=false)
+@recipe function f(bp::BlochProjections; plottitle="Bloch trajectory cross-sections", vec=nothing, blochmark=false, blochmarkcolor="white")
 	bloch = bp.args # has the form bloch = (xs, ys, zs)
 
 	# Define colors and labels -------------------------------------------------
@@ -295,7 +295,7 @@ end
 			@series begin
 
 				marker := (:circle, 3.5)
-				markercolor := "black"
+				markercolor := blochmarkcolor
 				subplot := i
 				[l1], [l2]
 

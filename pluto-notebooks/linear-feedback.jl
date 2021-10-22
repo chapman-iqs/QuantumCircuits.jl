@@ -26,11 +26,15 @@ begin
 	using Distributions
 	using QuantumCircuits
 	using Plots
+	using DataFrames
 	
 	include("plotting.jl")
 	
 	md" ###### 🔶 Packages and julia files"
 end
+
+# ╔═╡ 88b77211-fe49-4afb-9c2a-c64791c20395
+using CSV
 
 # ╔═╡ 377a3336-20bd-4baa-a033-af8bbc8668a8
 md"""
@@ -251,6 +255,9 @@ Following the analysis in [1], this notebook focuses on clockwise rotations in t
 # ╔═╡ fb578156-094b-43b1-8c64-740f64b193bc
 md" ## Simulation "
 
+# ╔═╡ 5e76a75a-3041-49f6-b5b6-96047b1d5bd4
+ideal = false
+
 # ╔═╡ e486fbed-157c-4139-914c-ada6bb88d7b4
 md" ##### Options: "
 
@@ -341,6 +348,44 @@ This raises the question: Can we adapt this method to similarly stabilize phase 
 
 """
 
+# ╔═╡ 219487b2-c85c-4b64-8387-5d8a90801dc6
+md"""
+### Ensemble
+"""
+
+# ╔═╡ 98baaa59-213b-4f6e-929b-db10ad4fd718
+N = 10
+
+# ╔═╡ d7e4182d-46ba-40f5-97bd-ced14022b3f0
+md"""
+###### Export DataFrame
+"""
+
+# ╔═╡ 9638226c-7c76-4230-9cc9-cc6700232e20
+testd = Dict([("A", 1), ("B", 2)])
+
+# ╔═╡ 2ef48cde-d72e-4d91-8de3-5fcb52d764eb
+testd."A"
+
+# ╔═╡ a8b375ae-5203-4c4f-96c8-e594c5eb098d
+md"""
+###### Import dataframe
+"""
+
+# ╔═╡ e8a25893-452f-461f-9050-ee16b6f80f54
+newx = DataFrame(CSV.File("data/xdata.csv"))
+
+# ╔═╡ 9279175b-0bb8-4f4d-b1ed-6289aacdaacf
+newz = DataFrame(CSV.File("data/zdata.csv"))
+
+# ╔═╡ 849589c4-d260-4f24-a1c5-cf4887ba9701
+md"""
+### Scan fidelities over η
+"""
+
+# ╔═╡ 84275f2c-a215-4d80-ba81-326ed0eab8c3
+N_ηs = 100
+
 # ╔═╡ e15a6a43-31fe-488d-aaab-aff9f50d1b8a
 md"""
 # Phasal linear feedback
@@ -405,6 +450,9 @@ md"""
 ## Dual quadrature measurement
 """
 
+# ╔═╡ c414534a-01d8-422b-9286-ce218a39bee8
+idealDQM = false
+
 # ╔═╡ 1dc2ee28-6a9e-4ca3-9c7e-390388882bb5
 md" $(@bind info_stabilize CheckBox()) Stabilize target state "
 
@@ -412,7 +460,7 @@ md" $(@bind info_stabilize CheckBox()) Stabilize target state "
 md" $(@bind phase_stabilize CheckBox()) Stabilize phase backaction "
 
 # ╔═╡ 4396ff4d-2768-464e-8e90-ddef35cbef5e
-md" `ΔS = ` 0 $(@bind ΔS2 Slider(0:0.1:2)) 2 MHz"
+md" `ΔS = ` 0.2 $(@bind ΔS2 Slider(0.25:0.005:0.35)) 0.3 MHz"
 
 # ╔═╡ da94dffd-a398-4d72-9742-295f4837f120
 md" `ΔS = ` $ΔS2 MHz"
@@ -438,6 +486,14 @@ $(@bind ϕvDQM html"<input type=range min=0 max=32 step=1 value=0>")
 # ╔═╡ 523e81ca-81ea-4d16-9098-7067e6ffa75d
 md" $(@bind BlochDQM CheckBox()) Animate Bloch sphere "
 
+# ╔═╡ 723b3eab-d717-4823-a7eb-da39202f6f7b
+md"""
+### Scan fidelities over ΔS
+"""
+
+# ╔═╡ 1f017209-c017-4d77-9a94-8edde2c02fdb
+NΔS = 100
+
 # ╔═╡ 9e98e449-859e-4cf7-9e28-b76390d961c9
 md"""
 # References
@@ -452,6 +508,26 @@ md" # Utilities"
 # ╔═╡ 8e85754f-d66b-477b-8153-b162519edb7c
 expects(ops) = ρ -> collect(real(expect(ρ, s)) for s in vcat(ops, ρ)) # ρ -> [<x>,<y>,<z>,<ρ>]
 
+# ╔═╡ fdcfcea3-e2b6-4939-ac6c-eada7421f3dd
+begin
+	@userplot MyPlot
+	
+	@recipe function f(mp::MyPlot; add_marker=false)
+		
+		x, y = mp.args
+		
+		linecolor   --> :blue
+		seriestype  :=  :path
+		markershape --> (add_marker ? :circle : :none)
+		legend := :none
+		
+		@series begin
+			x, y
+		end
+	end
+	
+end
+
 # ╔═╡ ccbcf668-d948-4ec6-a5f7-39a178d54c29
 xyz(θ, ϕ) = (sin(θ) * cos(ϕ), sin(θ) * sin(ϕ), cos(θ))
 
@@ -463,21 +539,22 @@ begin
 		y::Vector{Float64}
 		z::Vector{Float64}
 		p::Vector{Float64}
-		r1
-		r2
+		r
 	end
 	
 	function traj(t, ρ, r)
 		x, y, z = [real(expect(σi, ρ)) for σi in (σx, σy, σz)]
 		p = real(expect.(ρ, ρ))
-		traj(t, x, y, z, p, r, ())
+		traj(t, x, y, z, p, r)
 	end
 	
-	function traj(t, ρ, r1, r2)
+	function traj(sol::QuantumCircuits.solution)
+		t, ρ, r = (sol.t, sol.ρ, sol.r)
 		x, y, z = [real(expect(σi, ρ)) for σi in (σx, σy, σz)]
 		p = real(expect.(ρ, ρ))
-		traj(t, x, y, z, p, r1, r2)
+		traj(t, x, y, z, p, r)
 	end
+	
 end
 
 # ╔═╡ 09bcbe71-e239-4a7c-ac14-99a487c1f9a4
@@ -514,13 +591,7 @@ let
 	Random.seed!(seed)
 	sol = bayesian(T, ρ0, H, J, C; dt=dt)
 	
-	# collect outputs
-	tt = sol[1]
-    ρt = sol[2]
-	r = collect(sol[3][1])
-	
-	# get expectation values
-	global PLF = traj(tt, ρt, r)
+	global PLF = traj(sol)
 	
 	md" ###### 🔻 Simulation "
 	
@@ -546,10 +617,16 @@ let
 	ρ0 = DenseOperator(0.5*(id + x0*σx + y0*σy + z0*σz))
 	
 	# measurement parameters
-	τm = 1 					# time
+	τm = 2 					# time
 	Γm = 1/(2τm) 			# rate
-	η =  1 					# efficiency
+	η =  0.6					# efficiency
+	td = 0.2
 	
+	T1 = 40 	# energy decay time
+	Γ1 = 1/(2T1)# energy decay rate
+	T2 = 60 	# environmental dephasing time
+	Γ2 = 1/T2 	# environemntal dephasing rate
+
 	# simulation timescales
 	T = (0, 25τm) # simulation duration
 	dt = 0.5e-3  # integration time-step
@@ -568,22 +645,15 @@ let
 	# Kraus operators -------------------------------------------------------------
 	
 	H(t, r) = (Δ0 + Δ1*r[1]) * σϕ/2 + ΔS * r[2] * σz/2 
-	J = [(σz, ((1-η)*Γm))]
+	J = idealDQM ? [(σz, ((1-η)*Γm))] : [(σz, ((1-η)*Γm + Γ2)), (σm, Γ1)]
 	C = [(σz, τm, η/2), (im * σz, τm, η/2)]
 	
 
 	# Bayesian simulation ---------------------------------------------------------
 	Random.seed!(seed2)
-	sol = bayesian(T, ρ0, H, J, C; dt=dt)
-	
-	# collect outputs
-	tt = sol[1]
-    ρt = sol[2]
-	r1 = collect(sol[3][1])
-	r2 = collect(sol[3][2])
-	
-	# get expectation values
-	global DQM = traj(tt, ρt, r1, r2)
+	sol = bayesian(T, ρ0, H, J, C; dt=dt, td=td)
+
+	global DQM = traj(sol)
 	
 	md" ###### 🔻 Simulation "
 	
@@ -627,7 +697,7 @@ let
 	# measurement parameters
 	τm = 1 					# time
 	Γm = 1/(2τm) 			# rate
-	η =  1 					# efficiency
+	η =  0.5			# efficiency
 	
 	# simulation timescales
 	T = (0, 25τm) # simulation duration
@@ -648,20 +718,14 @@ let
 	
 	H(t, r) = (Δ0 + Δ1*r[1]) * σϕ/2
 	J = [(σz, ((1-η)*Γm))]
-	C = [(σz, τm, η/2)]
+	C = [(σz, τm, η)]
 	
 
 	# Bayesian simulation ---------------------------------------------------------
 	Random.seed!(seed2)
 	sol = bayesian(T, ρ0, H, J, C; dt=dt)
-	
-	# collect outputs
-	tt = sol[1]
-    ρt = sol[2]
-	r = collect(sol[3][1])
-	
-	# get expectation values
-	global SQM = traj(tt, ρt, r)
+
+	global SQM = traj(sol)
 	
 	md" ###### 🔻 Single-quadrature comparison "
 	
@@ -675,6 +739,77 @@ let
 	
 	blochtimeseries(sim.t, sim.x, sim.y, sim.z, title = "Monitored qubit", tf=last(sim.t), ylims=[-1.1,1.1], vec=vec)
 	
+end
+
+# ╔═╡ f48235c9-2261-4f37-9d78-62e181fa4d43
+let
+	
+	# System parameters ------------------------------------------------------------
+	# all times given in μs
+	
+	# initial state 
+	x0, y0, z0 = xyz(π/2, π/2)
+	ρ0 = DenseOperator(0.5*(id + x0*σx + y0*σy + z0*σz))
+	
+	# measurement parameters
+	τm = 1 					# time
+	Γm = 1/(2τm) 			# rate
+	η = 1 					# efficiency
+	
+	# simulation timescales
+	T = (0, 15τm) # simulation duration
+	dt = 0.5e-3  # integration time-step
+	
+	# Hamiltonian parameters
+	θs = 3π/10 # target angle on Bloch sphere
+	ϕ = π # fixes plane of oscillations
+	vecDQM = (sin(θs) * cos(π/2), sin(θs) * sin(π/2), cos(θs))
+	σϕ = cos(ϕ)*σx + sin(ϕ)*σy
+	
+	Δ0 = -sin(2θs)/(4τm)
+	Δ1 = sin(θs)/τm
+	global ΔSs = 0.5:0.025:1
+	
+	
+	# Scan over ΔS ---------------------------------------------------------------
+	
+	global ps_ΔS = []
+	
+	for ΔS in ΔSs
+
+		# Kraus operators - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+		H(t, r) = (Δ0 + Δ1*r[1]) * σϕ/2 + ΔS * r[2] * σz/2 
+		J = [(σz, ((1-η)*Γm))]
+		C = [(σz, τm, η/2), (im * σz, τm, η/2)]
+
+		
+		# loop over N simulations - - - - - - - - - - - - - - - - - - - - - - - - -
+		
+		xs, ys, zs = ([], [], [])
+		
+		for i in 1:NΔS
+			sol = bayesian(T, ρ0, H, J, C; dt=dt)
+			tr = traj(sol)
+			push!(xs, last(tr.x))
+			push!(ys, last(tr.y))
+			push!(zs, last(tr.z))
+		end
+
+		x, y, z = mean.((xs, ys, zs))
+		p = 0.5 * (1 + x^2 + y^2 + z^2) # state purity
+		push!(ps_ΔS, p)
+	end
+
+
+	
+	md" ###### 🔻 Simulation "
+	
+end
+
+# ╔═╡ e1fbdf59-c77f-4975-8a11-1bddc0a5b14d
+begin
+	myplot(ΔSs, ps_ΔS; add_marker=true, xguide="ΔS", yguide="purity", title="purity of ensemble average (N = 100) vs. ΔS", xticks=0:0.1:1)
 end
 
 # ╔═╡ 618168dc-53dd-4562-8061-67a0b56587aa
@@ -717,12 +852,7 @@ let
 	go
 	sol = bayesian(T, ρ0, H, J, C; dt=dt)
 	
-	# collect outputs
-	tt = sol[1]
-    ρt = sol[2]
-	r = collect(sol[3][1])
-	
-	global IB = traj(tt, ρt, r)
+	global IB = traj(sol)
 	
 	md" ###### 🔻 Simulation "
 	
@@ -763,43 +893,71 @@ end
 # ╔═╡ df97d34b-16a7-49a0-a143-939f18248f48
 blochtimeseries(IB.t, IB.x, IB.y, IB.z, title = "Monitored qubit", tf=last(IB.t), ylims=[-1.1,1.5])
 
-# ╔═╡ 9ed5fc83-eacd-4571-8806-42899fefa4bf
-begin
-	ideal = !nonideal
+# ╔═╡ 62472483-7fae-4adc-976c-9275e9d5ebfc
+myplot(IB.t, coarsegrain(IB.r, n=50))
+
+# ╔═╡ 13e19d59-5132-45f3-bac1-3a3b3a7a12b2
+let
 	
+	# System parameters ------------------------------------------------------------
 	# all times given in μs
-	# initial state
+	
+	# initial state 
 	(x0,y0,z0) = (0., 0.3, 0.91)
 	ρ0 = DenseOperator(0.5*(id + x0*σx + y0*σy + z0*σz))
 	
-	dt = 0.5e-3  # integration time-step
-	η =  parse(Float64, ηstr)# 0.41 # measurement efficiency
 	
-	θs = 3π/10 # target angle on Bloch sphere
-	ϕ = π # fixes plane of oscillations
-	vec = (sin(θs) * cos(π/2), sin(θs) * sin(π/2), cos(θs))
+	# measurement parameters
+	
+	τm = parse(Float64, τmstr)			# time
+	Γm = 1/(2τm) 						# rate
+	η =  parse(Float64, ηstr)			# efficiency
+	φ = get(φdict, φstr, 0) 			# angle
+	td = parse(Float64, Tdstr) * 1e-3 	# time delay for feedback
+
+	
+	# simulation timescales
+	
+	T = (0, 8τm) # simulation duration
+	dt = 0.5e-3  # integration time-step
+	
+	
+	# feedback target parameters
+	
+	global θs = 3π/10 		# target angle on Bloch sphere
+	Rs = 1 # 0.64 			# radius of target
+	ϕ = π 					# fixes plane of oscillations
+	global vec = (sin(θs) * cos(π/2), sin(θs) * sin(π/2), cos(θs))
 	σϕ = cos(ϕ)*σx + sin(ϕ)*σy
 	
-	τm = parse(Float64, τmstr) # 0.2 # measurement time
-	Γm = 1/(2τm) # measurement rate
-	T = (0, 8τm) # simulation duration
-	td = parse(Float64, Tdstr) * 1e-3 # time delay for feedback
-	φ = get(φdict, φstr, 0)
-	
-	Rs = 1 # 0.64 # radius of target
 	
 	# feedback drive parameters
+	
 	Δ0 = ideal ? -sin(2θs)/(4τm) : -sin(2θs)/(4τm*Rs^2) 
 	Δ1 = ideal ? sin(θs)/τm : sin(θs)/(τm*Rs)
+	
+	
+	# decay times and rates
+	
+	T1 = 40 	# energy decay time
+	Γ1 = 1/(2T1)# energy decay rate
+	T2 = 60 	# environmental dephasing time
+	Γ2 = 1/T2 	# environemntal dephasing rate
+	
+	
+	# Kraus operators -------------------------------------------------------------
+	
+	H = Hf(t, r) = (Δ0 + Δ1*r[1]) * σϕ/2
+	J = ideal ? [(σz, ((1-η)*Γm))] : [(σz, ((1-η)*Γm)), (σm, Γ1), (σz, Γ2)]
+	C = [(exp(im * φ) * σz, τm, η)]
+	
+	
+	# Bayesian simulation ---------------------------------------------------------
+	sol = bayesian(T, ρ0, H, J, C; dt=dt, td=td)
+	global ILF = traj(sol)
 		
-	T1 = 40 # energy decay time
-	T2 = 60 # environmental dephasing time
-
-	# corresponding rates
-	Γ1 = 1/(2T1)
-	Γ2 = 1/T2
-
-	md" ###### 🌀 System parameters"
+	md" ###### 🔻 Simulation "
+	
 end
 
 # ╔═╡ c9d3c54e-acff-4a84-8f95-937ee1602350
@@ -809,70 +967,234 @@ In this simulation, the stabilization target is chosen to be $\theta_s =$ $(roun
 In plots, the target is indicated by a red vector or dashed lines.
 """
 
-# ╔═╡ 23d6bc90-332d-47ca-a826-17d2fdeeaf51
-begin
-	C0 = [(exp(im * φ) * σz, τm, η)]
-	J0 = ideal ? [(σz, ((1-η)*Γm))] : [(σz, ((1-η)*Γm)), (σm, Γ1), (σz, Γ2)]
-	Hf(t, r) = (Δ0 + Δ1*r[1]) * σϕ/2
-	md" ###### 💢 Kraus operators"
-end
-
-# ╔═╡ ecc19d12-e53f-4904-b13f-7a2ccc4912d7
-begin
-	Random.seed!(1)
-	sol1 = bayesian(T, ρ0, Hf, J0, C0; dt=dt, td=td)
-	
-	# collect outputs
-	tt = sol1[1]
-    ρt = sol1[2]
-	r = collect(sol1[3][1])
-	
-	# get expectation values
-	xx, yy, zz = [real(expect(σi, ρt)) for σi in (σx, σy, σz)]
-	ρρ = real(expect.(ρt, ρt))
-	
-	md" ###### 🔻 Bayesian simulation (single-quadrature)"
-end
-
 # ╔═╡ 725dc4c3-cc74-4400-819c-2cffd06fbbf9
 let 
 	ϕv = ϕvc * (π/16)
+	sim = ILF
 	
 	if show_gif
-		anim = @animate for i ∈ range(1, length(tt), step=100)
-			blochsphere(xx[1:i], yy[1:i], zz[1:i], linewidth=1., linealpha=0.85, ax=true, vec=vec, viewϕ = ϕv, blochmark=true) end
+		anim = @animate for i ∈ range(1, length(sim.t), step=100)
+			blochsphere(sim.x[1:i], sim.y[1:i], sim.z[1:i], linewidth=1., linealpha=0.85, ax=true, vec=vec, viewϕ = ϕv, blochmark=true) end
 		gif(anim, fps = 15)
 	else
-		blochsphere(xx, yy, zz, linewidth=1., linealpha=0.85, ax=true, vec = vec, viewϕ = ϕv, blochmark=true)
+		blochsphere(sim.x, sim.y, sim.z, linewidth=1., linealpha=0.85, ax=true, vec = vec, viewϕ = ϕv, blochmark=true)
 	end
 end
 
 # ╔═╡ 34a700bb-5809-4755-a7fa-def102c5fd4c
 let 
+	sim = ILF
+	
 	if show_gif2
 		anim = @animate for i ∈ range(1, length(tt), step=100)
-			blochtimeseries(tt[1:i], xx[1:i], yy[1:i], zz[1:i], vec=vec, title = "Monitored Rabi oscillations", tf=last(tt)) end
+			blochtimeseries(sim.t[1:i], sim.x[1:i], sim.y[1:i], sim.z[1:i], vec=vec, title = "Monitored Rabi oscillations", tf=last(sim.t)) end
 		gif(anim, fps = 15)
 	else
-		blochtimeseries(tt, xx, yy, zz, vec=vec, title = "Monitored Rabi oscillations", tf=last(tt), ylims=[-1.1,1.5])
+		blochtimeseries(sim.t, sim.x, sim.y, sim.z, vec=vec, title = "Monitored Rabi oscillations", tf=last(sim.t), ylims=[-1.1,1.5])
 	end
 end
 
 # ╔═╡ bb5f3187-2773-4647-807a-63141e16c2b4
 let 
+	sim = ILF
+	
 	if show_gif3
-		anim = @animate for i ∈ range(1, length(tt), step=100)
-			blochprojections(xx[1:i], yy[1:i], zz[1:i], blochmark=true, vec=vec) end
+		anim = @animate for i ∈ range(1, length(sim.t), step=100)
+			blochprojections(sim.x[1:i], sim.y[1:i], sim.z[1:i], blochmark=true, blochmarkcolor="white", vec=vec) end
 		gif(anim, fps = 15)
 	else
-		blochprojections(xx, yy, zz, blochmark=true, vec=vec)
+		blochprojections(sim.x, sim.y, sim.z, blochmark=true, vec=vec, blochmarkcolor="white")
 	end
 end
 
 
 
+# ╔═╡ 6affc985-2426-42ed-a7be-4a18d21ccf27
+let
+	
+	# System parameters ------------------------------------------------------------
+	# all times given in μs
+	
+	# initial state 
+	(x0,y0,z0) = (0., 0.3, 0.91)
+	ρ0 = DenseOperator(0.5*(id + x0*σx + y0*σy + z0*σz))
+	
+	
+	# measurement parameters
+	
+	τm = parse(Float64, τmstr)			# time
+	Γm = 1/(2τm) 						# rate
+	η =  parse(Float64, ηstr)			# efficiency
+	φ = get(φdict, φIB, 0) 				# angle
+	td = parse(Float64, Tdstr) * 1e-3 	# time delay for feedback
+
+	
+	# simulation timescales
+	
+	T = (0, 8τm) # simulation duration
+	dt = 0.5e-3  # integration time-step
+	
+	
+	# feedback target parameters
+	
+	θs = 3π/10 		# target angle on Bloch sphere
+	Rs = 1 # 0.64 			# radius of target
+	ϕ = π 					# fixes plane of oscillations
+	vec = (sin(θs) * cos(π/2), sin(θs) * sin(π/2), cos(θs))
+	σϕ = cos(ϕ)*σx + sin(ϕ)*σy
+	
+	
+	# feedback drive parameters
+	
+	Δ0 = ideal ? -sin(2θs)/(4τm) : -sin(2θs)/(4τm*Rs^2) 
+	Δ1 = ideal ? sin(θs)/τm : sin(θs)/(τm*Rs)
+	
+	
+	# decay times and rates
+	
+	T1 = 40 	# energy decay time
+	Γ1 = 1/(2T1)# energy decay rate
+	T2 = 60 	# environmental dephasing time
+	Γ2 = 1/T2 	# environemntal dephasing rate
+	
+	
+	# Kraus operators -------------------------------------------------------------
+	
+	H = Hf(t, r) = (Δ0 + Δ1*r[1]) * σϕ/2
+	J = ideal ? [(σz, ((1-η)*Γm))] : [(σz, ((1-η)*Γm)), (σm, Γ1), (σz, Γ2)]
+	C = [(exp(im * φ) * σz, τm, η)]
+	
+	
+	# Bayesian simulation ---------------------------------------------------------
+	trajs = []
+	
+	# loop over N simulations
+	for i in 1:N
+		sol = bayesian(T, ρ0, H, J, C; dt=dt, td=td)
+		tr = traj(sol)
+		push!(trajs, tr)
+	end
+	
+# 	xm, ym, zm = (mean(xs), mean(ys), mean(zs))
+	
+# 	p = 0.5 .* (1 .+ xm.^2 + ym.^2 + zm.^2) # state purity
+	t = collect(T[1]:dt:T[2])   # list of times
+	
+	global dfx = DataFrame([tr.x for tr in trajs], [string("x", i) for i in 1:N])
+	global dfy = DataFrame([tr.y for tr in trajs], [string("y", i) for i in 1:N])
+	global dfz = DataFrame([tr.z for tr in trajs], [string("z", i) for i in 1:N])
+	global dfr = DataFrame([tr.r[1] for tr in trajs], [string("r", i) for i in 1:N])
+	global dft = DataFrame([t], ["t"])
+	
+	# global ILFens = traj(t, xm, ym, zm, p, ())
+	md" ###### 🔻 Simulation "
+	
+end
+
+# ╔═╡ 682c16f9-80e9-40a3-96c9-085876d62ed6
+CSV.write("xdata.csv", dfx)
+
+# ╔═╡ 42cfa26c-eb57-4014-897b-9fab1d991db6
+begin
+	CSV.write("data/ydata.csv", dfy)
+	CSV.write("data/zdata.csv", dfz)
+	CSV.write("data/rdata.csv", dfr)
+	CSV.write("data/tdata.csv", dfr)
+end
+
+# ╔═╡ 11a4a023-0cc6-4531-96d7-0764f226334b
+let
+	
+	# System parameters ------------------------------------------------------------
+	# all times given in μs
+	
+
+	
+	# initial state 
+	(x0,y0,z0) = (0., 0.3, 0.91)
+	ρ0 = DenseOperator(0.5*(id + x0*σx + y0*σy + z0*σz))
+	
+	
+	# measurement parameters
+	
+	τm = parse(Float64, τmstr)			# time
+	Γm = 1/(2τm) 						# rate
+	global ηs =  0.1:0.1:1.0 			# efficiency
+	φ = get(φdict, φIB, 0) 				# angle
+	td = parse(Float64, Tdstr) * 1e-3 	# time delay for feedback
+
+	
+	# simulation timescales
+	
+	T = (0, 8τm) # simulation duration
+	dt = 0.5e-3  # integration time-step
+	
+	
+	# feedback target parameters
+	
+	θs = 3π/10 		# target angle on Bloch sphere
+	Rs = 1 # 0.64 			# radius of target
+	ϕ = π 					# fixes plane of oscillations
+	vec = (sin(θs) * cos(π/2), sin(θs) * sin(π/2), cos(θs))
+	σϕ = cos(ϕ)*σx + sin(ϕ)*σy
+	
+	
+	# feedback drive parameters
+	
+	Δ0 = ideal ? -sin(2θs)/(4τm) : -sin(2θs)/(4τm*Rs^2) 
+	Δ1 = ideal ? sin(θs)/τm : sin(θs)/(τm*Rs)
+	
+	
+	# decay times and rates
+	
+	T1 = 40 	# energy decay time
+	Γ1 = 1/(2T1)# energy decay rate
+	T2 = 60 	# environmental dephasing time
+	Γ2 = 1/T2 	# environemntal dephasing rate
+	
+	
+	# loop over η values -----------------------------------------------------------
+	global ps = []
+	
+	for η in ηs
+
+		# Kraus operators - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+		H(t, r) = (Δ0 + Δ1*r[1]) * σϕ/2
+		J = ideal ? [(σz, ((1-η)*Γm))] : [(σz, ((1-η)*Γm)), (σm, Γ1), (σz, Γ2)]
+		C = [(exp(im * φ) * σz, τm, η)]
+
+
+		# Bayesian simulation - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+		
+		xs, ys, zs = ([], [], [])
+
+		# loop over N simulations
+		for i in 1:N_ηs
+			sol = bayesian(T, ρ0, H, J, C; dt=dt, td=td)
+			tr = traj(sol)
+			push!(xs, last(tr.x))
+			push!(ys, last(tr.y))
+			push!(zs, last(tr.z))
+		end
+
+		x, y, z = mean.((xs, ys, zs))
+		p = 0.5 * (1 + x^2 + y^2 + z^2) # state purity
+		push!(ps, p)
+
+	end
+	
+	md" ###### 🔻 Simulation "
+	
+end
+
+# ╔═╡ 5de35dba-fb82-49a4-9eec-c92750e7a4e9
+begin
+	myplot(ηs, ps; add_marker=true, xguide="η", yguide="purity", title="purity of ensemble average (N = 100) vs. η")
+end
+
 # ╔═╡ Cell order:
-# ╟─4c45fe3e-cd69-11eb-20cd-7bfb98c040cf
+# ╠═4c45fe3e-cd69-11eb-20cd-7bfb98c040cf
 # ╟─377a3336-20bd-4baa-a033-af8bbc8668a8
 # ╟─3edd54c6-4b52-41ff-a707-a6efce05e698
 # ╟─8f7c6440-eac8-49d3-bd23-c2545ec16830
@@ -882,13 +1204,14 @@ end
 # ╟─1ee143ba-2f0d-4eee-a76c-4bf58469e0be
 # ╟─d3e48ac4-973f-4397-bf06-89150a0c13ed
 # ╟─e43e5329-bd96-41ce-a183-1bd206204f65
-# ╟─49065a29-93ac-458d-ac0c-84f2f2151f9d
+# ╠═49065a29-93ac-458d-ac0c-84f2f2151f9d
 # ╟─875adb1b-22f7-4375-83c5-2a17c9a8e46c
 # ╟─3531558a-f9b7-4f6b-9800-884fe0b04712
-# ╟─f9eaaf70-4e0f-4503-8a64-2380682354ce
+# ╠═f9eaaf70-4e0f-4503-8a64-2380682354ce
 # ╟─faf0b11c-4339-4a82-a23c-9d35eb9d10b4
 # ╟─6bc3e01f-b3cb-4a32-ab6b-e5dcc967b07f
-# ╟─df97d34b-16a7-49a0-a143-939f18248f48
+# ╠═df97d34b-16a7-49a0-a143-939f18248f48
+# ╠═62472483-7fae-4adc-976c-9275e9d5ebfc
 # ╟─3ff551a9-3a07-4a2f-928e-880b7e3ba1fc
 # ╟─911d4aa1-41cd-4eea-8e0f-1af6f8024290
 # ╟─3ae402b0-476a-4c11-823c-d0016793adab
@@ -907,9 +1230,8 @@ end
 # ╟─a87a6bce-c5b6-4b04-9d14-d9656969d87b
 # ╟─fb578156-094b-43b1-8c64-740f64b193bc
 # ╟─c9d3c54e-acff-4a84-8f95-937ee1602350
-# ╟─9ed5fc83-eacd-4571-8806-42899fefa4bf
-# ╟─23d6bc90-332d-47ca-a826-17d2fdeeaf51
-# ╟─ecc19d12-e53f-4904-b13f-7a2ccc4912d7
+# ╠═5e76a75a-3041-49f6-b5b6-96047b1d5bd4
+# ╟─13e19d59-5132-45f3-bac1-3a3b3a7a12b2
 # ╟─e486fbed-157c-4139-914c-ada6bb88d7b4
 # ╟─4898ab97-4058-4e70-a959-2962641d9611
 # ╟─6b93bb84-0ba1-44e8-910e-612793b3df3b
@@ -917,7 +1239,7 @@ end
 # ╟─ca7a2351-cff5-4d77-ba16-00de384b8b7c
 # ╟─f3e7794e-a9a1-4103-8469-32a8e37d2d82
 # ╟─a12cdb8c-e9a1-4c2d-9811-cff266e152d8
-# ╟─725dc4c3-cc74-4400-819c-2cffd06fbbf9
+# ╠═725dc4c3-cc74-4400-819c-2cffd06fbbf9
 # ╟─0a7f28c9-1d84-43e6-b62c-711a231a3972
 # ╟─34a700bb-5809-4755-a7fa-def102c5fd4c
 # ╟─d9f2f00f-4ee2-45b5-91d6-6552d6d5b6c1
@@ -931,12 +1253,28 @@ end
 # ╟─ac1b9f43-39bf-4538-a588-aa2172ba6de6
 # ╟─7da8d44e-841e-42a3-b42a-0991569fa424
 # ╟─f8e6a7c8-9d4a-434f-b96a-5f27d5a69b23
+# ╟─219487b2-c85c-4b64-8387-5d8a90801dc6
+# ╠═98baaa59-213b-4f6e-929b-db10ad4fd718
+# ╠═6affc985-2426-42ed-a7be-4a18d21ccf27
+# ╟─d7e4182d-46ba-40f5-97bd-ced14022b3f0
+# ╠═88b77211-fe49-4afb-9c2a-c64791c20395
+# ╠═682c16f9-80e9-40a3-96c9-085876d62ed6
+# ╠═42cfa26c-eb57-4014-897b-9fab1d991db6
+# ╠═9638226c-7c76-4230-9cc9-cc6700232e20
+# ╠═2ef48cde-d72e-4d91-8de3-5fcb52d764eb
+# ╟─a8b375ae-5203-4c4f-96c8-e594c5eb098d
+# ╠═e8a25893-452f-461f-9050-ee16b6f80f54
+# ╠═9279175b-0bb8-4f4d-b1ed-6289aacdaacf
+# ╟─849589c4-d260-4f24-a1c5-cf4887ba9701
+# ╠═84275f2c-a215-4d80-ba81-326ed0eab8c3
+# ╠═11a4a023-0cc6-4531-96d7-0764f226334b
+# ╟─5de35dba-fb82-49a4-9eec-c92750e7a4e9
 # ╟─e15a6a43-31fe-488d-aaab-aff9f50d1b8a
 # ╟─6a5deff1-d8ff-47ea-9efa-ecc3b8c6dec0
 # ╟─fe7af10f-ab48-4a49-9bb1-e368ec94d928
 # ╟─ebb1ef94-f30a-4203-8862-5d0294588d30
 # ╟─09bcbe71-e239-4a7c-ac14-99a487c1f9a4
-# ╟─39679392-2d6a-42f1-89d7-4bd20a953090
+# ╠═39679392-2d6a-42f1-89d7-4bd20a953090
 # ╟─afb6751a-31af-44cf-8922-0f1b816755ca
 # ╟─c337e3e0-95cf-4c18-987e-59216bf54419
 # ╟─85a3d2ae-f740-43e6-80e3-9ba76c91fb68
@@ -944,22 +1282,28 @@ end
 # ╟─3c0e6012-0a8b-4975-baf7-bfe00571933f
 # ╟─175af755-b2e2-4a3e-9789-855bdec353ae
 # ╟─44cfbce3-0f4e-4641-90b8-f4853ccd68ea
+# ╟─c414534a-01d8-422b-9286-ce218a39bee8
 # ╟─88ec8109-87ed-457d-b9ab-b374176150b1
 # ╟─1dc2ee28-6a9e-4ca3-9c7e-390388882bb5
 # ╟─4ada2450-72ce-4960-9278-a6ec125d86a2
 # ╟─4396ff4d-2768-464e-8e90-ddef35cbef5e
 # ╟─da94dffd-a398-4d72-9742-295f4837f120
-# ╟─5615a4a2-768f-47f3-98ff-ae78a4e14413
+# ╠═5615a4a2-768f-47f3-98ff-ae78a4e14413
 # ╟─dbf13ff0-482b-4f28-9860-e0f1d556450c
 # ╟─f58ca757-4de6-4561-bb4e-4522c51e2b3e
 # ╟─1d4b8d69-3c7c-4b9c-9610-489641a619d5
-# ╟─523e81ca-81ea-4d16-9098-7067e6ffa75d
-# ╟─5c8ee263-061e-41b5-9138-3977e2c6dd09
+# ╠═523e81ca-81ea-4d16-9098-7067e6ffa75d
+# ╠═5c8ee263-061e-41b5-9138-3977e2c6dd09
 # ╟─660d4a39-1818-4f27-8371-acdbae557b97
-# ╟─c1ac49f3-c6ba-4f89-b351-49cfee9bb8f8
+# ╠═c1ac49f3-c6ba-4f89-b351-49cfee9bb8f8
+# ╟─723b3eab-d717-4823-a7eb-da39202f6f7b
+# ╠═1f017209-c017-4d77-9a94-8edde2c02fdb
+# ╠═f48235c9-2261-4f37-9d78-62e181fa4d43
+# ╠═e1fbdf59-c77f-4975-8a11-1bddc0a5b14d
 # ╟─9e98e449-859e-4cf7-9e28-b76390d961c9
 # ╟─133b6939-10b2-4c8e-acf8-5658ca96a0f9
 # ╟─8e85754f-d66b-477b-8153-b162519edb7c
+# ╠═fdcfcea3-e2b6-4939-ac6c-eada7421f3dd
 # ╠═ccbcf668-d948-4ec6-a5f7-39a178d54c29
 # ╠═2b35485b-155b-4fb1-868d-b431cc867d61
 # ╠═618168dc-53dd-4562-8061-67a0b56587aa
