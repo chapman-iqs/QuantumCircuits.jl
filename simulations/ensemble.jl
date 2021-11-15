@@ -1,5 +1,6 @@
 
 N = 1000
+writeblochs = false
 
 cd("/Users/sachagreenfield/Desktop/GitHub/QuantumCircuits.jl")
 
@@ -22,7 +23,7 @@ mkpath(exportpath)
 
 include("../utilities.jl")
 ideal = false
-dualquad = true
+dualquad = false
 
 
 "Qubit Hilbert space operators -------------------------------------------------------------------------------------"
@@ -116,24 +117,27 @@ C = dualquad ?
 
 "Write data --------------------------------------------------------------------"
 
-t = collect(T[1]:dt:T[2])   # list of times
+if writeblochs
 
-dfx = DataFrame([tr.x for tr in trajs], [string("x", i) for i in 1:N])
-dfy = DataFrame([tr.y for tr in trajs], [string("y", i) for i in 1:N])
-dfz = DataFrame([tr.z for tr in trajs], [string("z", i) for i in 1:N])
-dft = DataFrame([t], ["t"])
+	t = collect(T[1]:dt:T[2])   # list of times
 
-CSV.write(string(exportpath, "x.csv"), dfx)
-CSV.write(string(exportpath, "y.csv"), dfy)
-CSV.write(string(exportpath, "z.csv"), dfz)
-CSV.write(string(exportpath, "t.csv"), dft)
+	dfx = DataFrame([tr.x for tr in trajs], [string("x", i) for i in 1:N])
+	dfy = DataFrame([tr.y for tr in trajs], [string("y", i) for i in 1:N])
+	dfz = DataFrame([tr.z for tr in trajs], [string("z", i) for i in 1:N])
+	dft = DataFrame([t], ["t"])
 
-dfr1 = DataFrame([tr.r[1] for tr in trajs], [string("r1", i) for i in 1:N])
-CSV.write(string(exportpath, "r1.csv"), dfr1)
+	CSV.write(string(exportpath, "x.csv"), dfx)
+	CSV.write(string(exportpath, "y.csv"), dfy)
+	CSV.write(string(exportpath, "z.csv"), dfz)
+	CSV.write(string(exportpath, "t.csv"), dft)
 
-if dualquad
-	dfr2 = DataFrame([tr.r[2] for tr in trajs], [string("r2", i) for i in 1:N])
-	CSV.write(string(exportpath, "r2.csv"), dfr2)
+	dfr1 = DataFrame([tr.r[1] for tr in trajs], [string("r1", i) for i in 1:N])
+	CSV.write(string(exportpath, "r1.csv"), dfr1)
+
+	if dualquad
+		dfr2 = DataFrame([tr.r[2] for tr in trajs], [string("r2", i) for i in 1:N])
+		CSV.write(string(exportpath, "r2.csv"), dfr2)
+	end
 end
 
 

@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.0
+# v0.16.4
 
 using Markdown
 using InteractiveUtils
@@ -32,7 +32,7 @@ using PlutoUI
 md"""
 # Quadrature measurements
 
-In this interactive notebook, we'll look at how changing the reference phase of the LO affects qubit measurement.
+In this interactive notebook, we'll look at how changing measurement angle affects qubit measurement.
 """
 
 # ╔═╡ 3edd54c6-4b52-41ff-a707-a6efce05e698
@@ -88,6 +88,12 @@ along the IF port, where $\Delta_\text{RO} \equiv \omega_\text{LO} - \omega_\tex
 
 # ╔═╡ f1d33aff-03d3-4223-b67d-d7e9be26c168
 md" ### Mixer simulation"
+
+# ╔═╡ 019c8da1-8cc8-452b-839f-bc50772f9d79
+begin
+	χ = 2π * (-0.47)
+	κ = 2π * (1.56)
+end
 
 # ╔═╡ 1abcbbed-e7e6-4a06-a1eb-3a0922785323
 md"""
@@ -450,7 +456,7 @@ begin
 	σx = σxq ⊗ If
 	σy = σyq ⊗ If
 	σz = σzq ⊗ If
-	σp = σmq ⊗ If
+	σp = σpq ⊗ If
 	σm = σmq ⊗ If
 	
 	# projectors
@@ -1462,7 +1468,7 @@ md"""
 # ╔═╡ Cell order:
 # ╠═f230c876-f933-4ee4-a079-a66147dea73c
 # ╠═4c45fe3e-cd69-11eb-20cd-7bfb98c040cf
-# ╟─377a3336-20bd-4baa-a033-af8bbc8668a8
+# ╠═377a3336-20bd-4baa-a033-af8bbc8668a8
 # ╠═3edd54c6-4b52-41ff-a707-a6efce05e698
 # ╟─f24df928-22c4-4943-bc9c-218750fe4da7
 # ╟─3d17c4b0-e051-41b0-9f20-bb22c4db4398
@@ -1474,6 +1480,7 @@ md"""
 # ╟─2a548d96-451f-4bd7-b9e5-7c3fa85c2abb
 # ╟─f1d33aff-03d3-4223-b67d-d7e9be26c168
 # ╟─3b125df9-c86d-4e4a-949e-8701b91d58e4
+# ╠═019c8da1-8cc8-452b-839f-bc50772f9d79
 # ╟─6ae79dd2-dc81-4d00-8bce-394d788a9207
 # ╟─ba89c6ca-abd3-48ce-b1da-54f282fbd94d
 # ╟─0d715d29-173d-4e4f-9ea2-74e0d9441b50
@@ -1496,7 +1503,7 @@ md"""
 # ╟─d44ea114-6e92-4790-978d-7286394e9506
 # ╟─8a8987ef-225c-4538-92d0-ca2004266053
 # ╟─82ffdfde-b2ff-4859-8ca6-119a4d5d95cd
-# ╟─bddc09b0-f90a-40e5-be77-d1afa4309fa4
+# ╠═bddc09b0-f90a-40e5-be77-d1afa4309fa4
 # ╟─30b5b2c5-1243-40c2-aa23-ec1a4e1b50da
 # ╟─d6f73306-ab64-4fba-9955-55298ab566e5
 # ╟─aec1af64-50c5-4560-8461-e45bfc2f406d
@@ -1506,20 +1513,20 @@ md"""
 # ╟─de3fe955-780c-489f-9b6d-f3a8c3bf140d
 # ╟─cd661d56-ebd0-4334-9ae6-47e738d11b54
 # ╟─88e1d88a-3565-42b3-9732-02862163a12b
-# ╟─4284173a-be05-4b58-a8d9-7189301344fd
+# ╠═4284173a-be05-4b58-a8d9-7189301344fd
 # ╠═139565f9-0219-4939-a470-4252397dd6a0
 # ╟─ca554621-0fe8-4d7a-bd3f-acdf795648c4
 # ╟─fe1986ff-00c7-4b9f-8d20-9a38c85e2a28
-# ╟─38d58263-6411-4189-9aca-95e99e7e558a
+# ╠═38d58263-6411-4189-9aca-95e99e7e558a
 # ╟─073c34d3-a243-4560-9862-28f15b24e685
 # ╟─df85f145-8739-44aa-9f1f-2b3ec699a4a4
 # ╠═b6ae1b65-aa9d-4d7e-b07e-f51ebdcd44b3
 # ╟─de277991-5f34-4906-a9bb-b1832131b45f
 # ╟─eb1ac4e6-5bc3-4c67-85b0-e4be923362a4
-# ╟─83ec507b-a0ea-48b9-bb9e-0e2c70e385a6
+# ╠═83ec507b-a0ea-48b9-bb9e-0e2c70e385a6
 # ╟─ede93004-ef9e-461f-b4ea-062f9d7879f3
 # ╟─9d0fe6ee-aa00-43c8-b40f-937dd6024d74
-# ╟─05b536fa-e464-4476-8c27-65ffe89d09a6
+# ╠═05b536fa-e464-4476-8c27-65ffe89d09a6
 # ╠═55b946e9-20e2-4ea8-85e2-455dd9b6b8a1
 # ╟─865752f3-c563-4a6c-be2f-3dbe73d38406
 # ╟─9baf661a-feb9-463d-a75e-69848ad888ae
@@ -1549,6 +1556,6 @@ md"""
 # ╟─a255f7a5-d617-4444-80a4-4e4e7762b236
 # ╟─6e86b5ee-5b38-4245-b555-c208151c0c53
 # ╟─fb32f241-34bb-413b-99d2-c0155b363670
-# ╟─e730e11b-6fa5-4121-80eb-69a59d74b852
+# ╠═e730e11b-6fa5-4121-80eb-69a59d74b852
 # ╟─c8aa6f9a-a2b7-45d7-9e39-344380a3909b
 # ╟─6bb8877f-d861-492e-b816-2396fcd6d59c

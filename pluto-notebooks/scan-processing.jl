@@ -47,7 +47,7 @@ Start by loading in the data from CSV. This notebook is formatted to load data e
 """
 
 # ╔═╡ a3ace32d-7fc3-4f93-8e6c-18c430266042
-loadpath = string("data/", "2021-10-01T13-09-09.342", "/")
+loadpath = string("data/", "2021-11-08T13-30-01.423", "/")
 
 # ╔═╡ 524ae1e4-5e3c-47b8-bc7e-1725ebc50694
 md"""
@@ -72,36 +72,19 @@ begin
 	pars = Dict(pairs)
 end
 
-# ╔═╡ 5002b4ce-02f6-4b8e-a50e-1710bb051ec8
-dualquad = (pars["dualquad"] == "true")
-
-# ╔═╡ 64d41305-e2df-4633-8882-93ffbb9789ec
-begin
-	X = DataFrame(CSV.File(string(loadpath, "x.csv")))
-	Y = DataFrame(CSV.File(string(loadpath, "y.csv")))
-	Z = DataFrame(CSV.File(string(loadpath, "z.csv")))
-	R1 = DataFrame(CSV.File(string(loadpath, "r1.csv")))
-	if dualquad
-		R2 = DataFrame(CSV.File(string(loadpath, "r2.csv")))
-	end
-	T = DataFrame(CSV.File(string(loadpath, "t.csv")))
-	
-	md" ###### 🟡 Load data frames"
-end
-
 # ╔═╡ c2d03585-5c34-4fe0-8f31-46c3eaebf58d
 parDF
+
+# ╔═╡ 5df46616-f2bb-49a7-a654-dbb14533839f
+data = DataFrame(CSV.File(string(loadpath, "scan-η-td.csv")))
+
+# ╔═╡ 5002b4ce-02f6-4b8e-a50e-1710bb051ec8
+dualquad = (pars["dualquad"] == "true")
 
 # ╔═╡ 8beea68b-c83e-4f4c-894c-40406713bf95
 md"""
 ### Process data
 """
-
-# ╔═╡ f622c152-87f1-4638-92a8-c67474bd7d97
-testarr = [[1,2,3,4], [5,6,7,8], [9,10,11,12]]
-
-# ╔═╡ 02852184-5188-4e04-b4e6-49d5b6376c4d
-mean(testarr)
 
 # ╔═╡ cafec9e4-102a-4e8c-a350-0ae626267f95
 begin
@@ -191,13 +174,11 @@ Data found in $loadpath
 # ╟─ce78f5b7-1882-4808-b87b-3fc929de8700
 # ╠═a3ace32d-7fc3-4f93-8e6c-18c430266042
 # ╟─524ae1e4-5e3c-47b8-bc7e-1725ebc50694
-# ╠═75e1d2dd-06a2-496b-b69f-c52aaf206563
-# ╠═5002b4ce-02f6-4b8e-a50e-1710bb051ec8
-# ╠═64d41305-e2df-4633-8882-93ffbb9789ec
+# ╟─75e1d2dd-06a2-496b-b69f-c52aaf206563
 # ╠═c2d03585-5c34-4fe0-8f31-46c3eaebf58d
+# ╠═5df46616-f2bb-49a7-a654-dbb14533839f
+# ╠═5002b4ce-02f6-4b8e-a50e-1710bb051ec8
 # ╟─8beea68b-c83e-4f4c-894c-40406713bf95
-# ╠═f622c152-87f1-4638-92a8-c67474bd7d97
-# ╠═02852184-5188-4e04-b4e6-49d5b6376c4d
 # ╠═cafec9e4-102a-4e8c-a350-0ae626267f95
 # ╠═fc62283c-6cb6-42ff-8c4d-7baeb542c19c
 # ╠═5c9940d0-7abf-45ad-ab5e-e9a326f2aa08
