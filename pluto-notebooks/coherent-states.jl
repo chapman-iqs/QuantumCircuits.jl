@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.0
+# v0.17.1
 
 using Markdown
 using InteractiveUtils
@@ -7,8 +7,9 @@ using InteractiveUtils
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
     quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
         local el = $(esc(element))
-        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : missing
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
     end
 end
@@ -552,24 +553,6 @@ function envelope(t, funcs...)
 	
 end
 
-# ╔═╡ 0d85d373-e094-4864-8a1a-83936c3362d5
-let
-	ωε = 2π * fε # MHz
-	
-	t0 = 0 # μs
-	t1 = (1/fε)/2 # μs
-	t3 = 100 # μs
-	t2 = t3 - (1/fε)/2 # μs
-	
-	ε1(t) = (ΩR0/2) * (1 - cos(ωε * t))
-	ε2(t) = ΩR0
-	ε3(t) = (ΩR0/2) * (1 - cos(ωε * (t - t2) + π))
-
-	global ε(t) = envelope(t, (ε1, (t0, t1)), (ε2, (t1, t2)), (ε3, (t2, t3)))
-	
-	md" 🌀 drive and function definitions"
-end
-
 # ╔═╡ 18c5a83d-cf4f-4303-842d-c800193e52b1
 let
 	fε = 0.02
@@ -637,6 +620,24 @@ $(last(ts)) μs
 md"""
 t = $(ts[j]) μs
 """
+
+# ╔═╡ 0d85d373-e094-4864-8a1a-83936c3362d5
+let
+	ωε = 2π * fε # MHz
+	
+	t0 = 0 # μs
+	t1 = (1/fε)/2 # μs
+	t3 = 100 # μs
+	t2 = t3 - (1/fε)/2 # μs
+	
+	ε1(t) = (ΩR0/2) * (1 - cos(ωε * t))
+	ε2(t) = ΩR0
+	ε3(t) = (ΩR0/2) * (1 - cos(ωε * (t - t2) + π))
+
+	global ε(t) = envelope(t, (ε1, (t0, t1)), (ε2, (t1, t2)), (ε3, (t2, t3)))
+	
+	md" 🌀 drive and function definitions"
+end
 
 # ╔═╡ 5fe7e35f-c2d1-425d-96b4-bc3e2c377f61
 # RUNGE KUTTA INTEGRATION OF αp, αm
@@ -1217,7 +1218,7 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─91e5577b-fe11-4d8e-b37e-813a81621385
 # ╟─9c860ffd-7a2d-45df-84a8-1ddcf0f46298
 # ╟─897d6364-90ee-41cc-ab70-d5ef0c537bd2
-# ╟─67d7fdb7-145f-42f3-8dec-cb6fc8bb3018
+# ╠═67d7fdb7-145f-42f3-8dec-cb6fc8bb3018
 # ╟─1c0539b3-e6ca-4869-aa65-e268c6842d22
 # ╟─e73546a2-2b9e-4062-89f2-5a0913209988
 # ╟─05def7cc-6c0e-496e-9429-1fd457575b31
@@ -1235,7 +1236,7 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─c5141459-60d0-47ed-90f3-ac4e741e5707
 # ╟─0d85d373-e094-4864-8a1a-83936c3362d5
 # ╟─71ea6e65-46b3-4c6c-a919-87dd31a6674f
-# ╟─5fe7e35f-c2d1-425d-96b4-bc3e2c377f61
+# ╠═5fe7e35f-c2d1-425d-96b4-bc3e2c377f61
 # ╟─2b5dc7be-d3c8-40b8-b13a-d36b51f114d8
 # ╟─e0db1833-9b68-4254-8556-c76d0162a3d1
 # ╟─941b53b6-02e3-4cbc-ba8a-6e4b6b764f51

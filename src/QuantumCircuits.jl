@@ -14,6 +14,7 @@ module QuantumCircuits
 	const Time = Float64
 	const Rate = Float64
 	const Efficiency = Float64
+	const Record = Vector{Float64}
 	const QOp = AbstractOperator
 
 	δ(i,j) = Int(i == j);
@@ -30,14 +31,36 @@ module QuantumCircuits
 
 
 
-	function bayesian(T::Tuple, ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[], td=0.0, sample=true)
+	function bayesian(T::Tuple, ρ, H, J, C; fn=ρ->ρ, dt=1e-4, r=[], sample=true)
 		ts = range(first(T), last(T), step=dt)
-		feedback = applicable(H0, ts[1], [1])
-		rsize = length(Ctups)
+		rsize = length(C)
+		trajectory(meas(dt, H, J, C; rdo=r, ts=ts, sample=sample), ts, ρ; fn=fn, rsize=rsize, dt=dt)
 
-		return feedback ?
-				trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, td=td, sample=sample), ts, ρ, td; fn=fn, rsize=rsize, dt=dt) :
-				trajectory(meas(dt, H0, J0, Ctups; rdo=r, ts=ts, sample=sample), ts, ρ; fn=fn, rsize=rsize, dt=dt)
+	end
+	function fbayesian(T::Tuple, ρ, H::Function, J, C; fn=ρ->ρ, dt=1e-4, r=[], sample=true, td=0.0)
+		t_probe::Time = 0.0
+		r_probe::Record = [0.0]
+		ρ_probe::QOp = identityoperator(SpinBasis(1//2))
+
+		error_message = "feedback Hamiltonian H does not have correct argument types. Define a function H(t::Float64, r::Vector{Float64}) for record feedback or H(t::Float64, ρ::AbstractOperator) for state feedback."
+
+		feedback_record = applicable(H, t_probe, r_probe)
+		feedback_state = applicable(H, t_probe, ρ_probe)
+
+		if feedback_record && feedback_state
+			error(error_message)
+		end
+
+		ts = range(first(T), last(T), step=dt)
+		rsize = length(C)
+
+		if feedback_record
+			frtrajectory(frmeas(dt, H, J, C; rdo=r, ts=ts, td=td, sample=sample), ts, ρ; fn=fn, rsize=rsize, dt=dt, td=td)
+		elseif feedback_state
+			fstrajectory(fsmeas(dt, H, J, C; rdo=r, ts=ts, td=td, sample=sample), ts, ρ; fn=fn, rsize=rsize, dt=dt, td=td)
+		else
+			error(error_message)
+		end
 
 	end
 
@@ -82,63 +105,123 @@ module QuantumCircuits
 	  - (t, ρ(t)::Operator) -> (ρ(t+dt)::Operator, rlist::Float64...)
 
 	"""
-	function meas(dt::Float64, H0, J0, C; rdo=Array[], ts=[], td=0, sample=true)
+	function meas(dt::Float64, H, J, C; rdo=Array[], ts=[], td=0, sample=true)
 
-		feedback = applicable(H0, ts[1], [1])
 		sim = (length(rdo) == 0)
 
 		# Assemble readout generating functions and Kraus operators
 		ros = Function[]
 		gks = Function[]
 
-		H = length(methods(H0)) > 0 ? H0 : t -> H0 # if H0 is already a function of t, set H = H0; if H0 = const, define h(t) a constant function of t
-		# J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0) # same, for each element of J0
-		J = []
-		for (j, Γ) in J0
-			push!(J, length(methods(Γ)) > 0 ? (t -> √Γ(t) * j) : (t -> √Γ * j) ) end
-
-		# C = []
-		# for (c, τm, η) in Ctups
-		# 	push!(C, length(methods(τm)) > 0 ? (t -> c,τm,η) : (t -> c,t -> τm,η) ) end
-
 		for (m, Γ, η) in C
+			Γ = convert(Float64, Γ)
+			η = convert(Float64, η)
 			if sim && sample
 				push!(ros, readout(dt, m, Γ, η)) end
 			push!(gks, gausskraus(dt,  m, Γ, η))
 		end
 
-		L = lind(dt, H, clist=[], flist=J)
+		clist, flist = [], []
+		for (j, γ) in J
+			if typeof(γ) <: Function
+				push!(flist, t -> √γ(t) * j)
+			else
+				push!(clist, √γ * j)
+			end
+		end
+
+		L = lind(dt, H, clist=clist, flist=flist)
 
 
-		if feedback
-
-				(t, ρ, rd) -> begin
-					rs = sim ? map(ro -> ro(t, ρ), ros) : map(ro -> ro[argmin(abs.(ts .- t))], rdo)
-					gs = map(z -> z[2](t, z[1]), zip(rs, gks))
-					ρ1 = foldr(sand, gs; init=ρ);
-					return td == 0 ? (L(t, ρ1/tr(ρ1), rs), rs) : (L(t, ρ1/tr(ρ1), rd), rs)
-				end
-		else
 		# Increment that samples each readout, applies all Kraus operators
 			# then applies Lindblad dephasing (including Hamiltonian evolution)
-			(t, ρ) -> begin
-				# for each experimental record (corresponding to each observable), get the value closest to t
-				# else, for each simulated record, get the value corresponding to (t,ρ)
-				# gives an array (?) of readout values for each observable, at time t.
-				rs = sim ? map(ro -> ro(t, ρ), ros) : map(ro -> ro[argmin(abs.(ts .- t))], rdo)
+		(t, ρ) -> begin
+			# for each experimental record (corresponding to each observable), get the value closest to t
+			# else, for each simulated record, get the value corresponding to (t,ρ)
+			# gives an array (?) of readout values for each observable, at time t.
+			rs = sim ? map(ro -> ro(t, ρ), ros) : map(ro -> ro[argmin(abs.(ts .- t))], rdo)
 
-				# for each pair in `zip(rs, gks)`, get the gausskraus operator `z[2]` as a function of `(t,z[1])`,
-				# where `z[1]` is the readout value at `t`
-				gs = map(z -> z[2](t, z[1]), zip(rs, gks))
+			# for each pair in `zip(rs, gks)`, get the gausskraus operator `z[2]` as a function of `(t,z[1])`,
+			# where `z[1]` is the readout value at `t`
+			gs = map(z -> z[2](t, z[1]), zip(rs, gks))
 
-				# apply each element of gs via `sand` function (sandwich) to ρ
-				ρ1 = foldr(sand, gs; init=ρ);
-				return (L(t, ρ1/tr(ρ1)), rs)
-			end
-
+			# apply each element of gs via `sand` function (sandwich) to ρ
+			ρ1 = foldr(sand, gs; init=ρ);
+			return (L(t, ρ1/tr(ρ1)), rs)
 		end
 
 	end
+	function frmeas(dt::Float64, H, J, C; rdo=Array[], ts=[], td=0.0, sample=true)
+
+		sim = (length(rdo) == 0)
+
+		# Assemble readout generating functions and Kraus operators
+		ros = Function[]
+		gks = Function[]
+
+		for (m, Γ, η) in C
+			Γ = convert(Float64, Γ)
+			η = convert(Float64, η)
+			if sim && sample
+				push!(ros, readout(dt, m, Γ, η)) end
+			push!(gks, gausskraus(dt,  m, Γ, η))
+		end
+
+		clist, flist = [], []
+		for (j, γ) in J
+			if typeof(γ) <: Function
+				push!(flist, t -> √γ(t) * j)
+			else
+				push!(clist, √γ * j)
+			end
+		end
+
+		L = frlind(dt, H, clist=clist, flist=flist)
+
+		(t, ρ, rd) -> begin
+			rs = sim ? map(ro -> ro(t, ρ), ros) : map(ro -> ro[argmin(abs.(ts .- t))], rdo)
+			gs = map(z -> z[2](t, z[1]), zip(rs, gks))
+			ρ1 = foldr(sand, gs; init=ρ);
+			return td == 0.0 ? (L(t, ρ1/tr(ρ1), rs), rs) : (L(t, ρ1/tr(ρ1), rd), rs)
+		end
+
+	end
+	function fsmeas(dt::Float64, H, J, C; rdo=Array[], ts=[], td=0.0, sample=true)
+
+		sim = (length(rdo) == 0)
+
+		# Assemble readout generating functions and Kraus operators
+		ros = Function[]
+		gks = Function[]
+
+		for (m, Γ, η) in C
+			Γ = convert(Float64, Γ)
+			η = convert(Float64, η)
+			if sim && sample
+				push!(ros, readout(dt, m, Γ, η)) end
+			push!(gks, gausskraus(dt,  m, Γ, η))
+		end
+
+		clist, flist = [], []
+		for (j, γ) in J
+			if typeof(γ) <: Function
+				push!(flist, t -> √γ(t) * j)
+			else
+				push!(clist, √γ * j)
+			end
+		end
+
+		L = fslind(dt, H, clist=clist, flist=flist)
+
+		(t, ρ, ρd) -> begin
+			rs = sim ? map(ro -> ro(t, ρ), ros) : map(ro -> ro[argmin(abs.(ts .- t))], rdo)
+			gs = map(z -> z[2](t, z[1]), zip(rs, gks))
+			ρ1 = foldr(sand, gs; init=ρ);
+			return td == 0.0 ? (L(t, ρ1/tr(ρ1), ρ), rs) : (L(t, ρ1/tr(ρ1), ρd), rs)
+		end
+
+	end
+
 
 
 	# function readout(dt, (c, τm, η))
@@ -171,16 +254,6 @@ module QuantumCircuits
 		(t::Time, ρ) -> σ*randn() + real(expect(ρ, mo))
 	end
 
-
-	#
-	# function gausskraus(dt, (c, τm, η))
-	# 	v = dt / 2
-	#     (t, r) -> let m(t) = c(t) * sqrt(η / (2τm(t)))
-	# 						R = r / sqrt(τm(t)/2)
-	# 						mo = (m(t) .+ m(t)') / 2
-	#                         mo2 = mo^2 / 2
-	#                         exp(DenseOperator((conj(R) * m(t) - mo2) * v)) end
-	# end
 
 	# handling all cases for types of m, Γ
 	"takes as input Γ, ensemble measurement dephasing rate"
@@ -230,10 +303,9 @@ module QuantumCircuits
 
 	    recs = collect(eachrow(hcat(recs...)))
 
-	    return solution(ts, ρs, recs)
+	    return Solution(ts, ρs, recs)
 	end
-
-	@inline function trajectory(inc::Function, ts, ρ, td; fn::Function=ρ->ρ, rsize=1, dt=1e-4)
+	@inline function frtrajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, rsize=1, dt=1e-4, td=0.0)
 
 		# init
 		ρ0 = ρ
@@ -267,7 +339,45 @@ module QuantumCircuits
 	    end
 
 
-		return solution(ts, ρs, recs)
+		return Solution(ts, ρs, recs)
+
+	end
+	@inline function fstrajectory(inc::Function, ts, ρ; fn::Function=ρ->ρ, rsize=1, dt=1e-4, td=0.0)
+
+		# init
+		ρ0 = ρ
+		r0 = [0.0 for i in 1:rsize]
+		ρs = [ρ0]
+		fρs = [fn(ρ0)]
+		recs = [[] for i in 1:rsize]
+		for (i, r) in enumerate(r0)
+			push!(recs[i], r) end
+
+		# find time-delay in terms of indices
+		td_index = argmin(abs.(ts .- td))
+
+		# before feedback delay is turned on
+		for t in ts[2:td_index]
+			ρd = ρ0
+			ρ, rs = inc(t, ρ, ρd)
+			push!(ρs, ρ)
+			push!(fρs, fn(ρ))
+			for (i, r) in enumerate(rs)
+				push!(recs[i], r) end
+		end
+
+		# after feedback buffer is filled
+		for (i, t) in enumerate(ts[(td_index + 1):length(ts)])
+			# rd uses r0 as placeholder if no time delay, since current readout will come from inc
+			ρd = (td_index == 1) ? ρ : ρs[i - (td_index - 1)]
+	        ρ, rs = inc(t, ρ, ρd)
+			push!(ρs, ρ)
+	        push!(fρs, fn(ρ))
+			for (i, r) in enumerate(rs)
+				push!(recs[i], r) end
+	    end
+
+		return Solution(ts, fρs, recs)
 
 	end
 
@@ -320,14 +430,16 @@ module QuantumCircuits
 	    (t, ρ) -> mapreduce(f -> f(t, ρ), +, ds)
 	end
 	function lind(dt, H; clist=QOp[], flist=Function[])
-
-		feedback = applicable(H, 1, [1])
-	    # Rely on Hamiltonian to specify type of H
-	    h = ham(dt, H)
-	    # Apply Hamiltonian first, then the Lindblad increment
-		return feedback ?
-				(t, ρ, r) -> lind(dt, clist=clist, flist=flist)(t, h(t, ρ, r)) :
-				(t, ρ) -> lind(dt, clist=clist, flist=flist)(t, h(t, ρ))
+		h = ham(dt, H)
+		(t, ρ) -> lind(dt, clist=clist, flist=flist)(t, h(t, ρ))
+	end
+	function frlind(dt, H; clist=QOp[], flist=Function[])
+		h = frham(dt, H)
+		(t, ρ, r) -> lind(dt, clist=clist, flist=flist)(t, h(t, ρ, r))
+	end
+	function fslind(dt, H; clist=QOp[], flist=Function[])
+		h = fsham(dt, H)
+		(t, ρ, ρd) -> lind(dt, clist=clist, flist=flist)(t, h(t, ρ, ρd))
 	end
 
 
@@ -346,17 +458,18 @@ module QuantumCircuits
 
 	"""
 	function ham(dt, H::Operator)
-
-	    u::Operator = exp( -im * dt * DenseOperator(H))
+ 		u::Operator = exp( -im * dt * DenseOperator(H))
 	    ut = u'
 	    (t, ρ::Operator) -> u * ρ * ut
-
 	end
 	function ham(dt, H::Function)
-		feedback = applicable(H, 1, [1])
-		return feedback ?
-				(t, state, r) -> ham(dt, H(t, r))(t, state) :
-				(t, state) -> ham(dt, H(t))(t, state)
+		(t, state) -> ham(dt, H(t))(t, state)
+	end
+	function frham(dt, H::Function)
+		(t, state, r) -> ham(dt, H(t, r))(t, state)
+	end
+	function fsham(dt, H::Function)
+		(t, state, delayed_state) -> ham(dt, H(t, delayed_state))(t, state)
 	end
 	"""
 	    rouchon(T, ρ0, H, J, C; <keyword arguments>)
@@ -464,7 +577,7 @@ module QuantumCircuits
 		end
 
 
-	    return solution(ts, ρs, recs)
+	    return Solution(ts, ρs, recs)
 	end
 
 
@@ -527,12 +640,12 @@ module QuantumCircuits
 	    a[filter(x -> x%n==0, eachindex(a))]
 	end
 
-	struct solution
+	struct Solution
 		t::Vector{Float64}
 		ρ
 		r
 	end
 
-	export δ, rouchon, ensemble, meas, trajectory, bayesian, coarse_grain, subselect
+	export δ, rouchon, ensemble, meas, trajectory, bayesian, fbayesian, coarse_grain, subselect
 
 end # module

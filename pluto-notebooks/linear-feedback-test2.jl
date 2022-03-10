@@ -14,6 +14,27 @@ macro bind(def, element)
     end
 end
 
+# ╔═╡ 4c45fe3e-cd69-11eb-20cd-7bfb98c040cf
+begin
+	cd("/Users/sachagreenfield/Desktop/GitHub/QuantumCircuits.jl")
+	import Pkg
+	Pkg.activate(".")
+	
+	using PlutoUI
+	using LaTeXStrings
+	using Random
+	using Statistics
+	using Distributions
+	using QuantumCircuits
+	using Plots
+	using DataFrames
+	using Dates
+	
+	include("plotting.jl")
+	
+	md" ###### 🔶 Packages and julia files"
+end
+
 # ╔═╡ 88b77211-fe49-4afb-9c2a-c64791c20395
 using CSV
 
@@ -101,9 +122,6 @@ begin
 					replace(ep, ":" => "-") end
 	md" $(@bind exportgifs CheckBox(default=false)) Export gifs"
 end
-
-# ╔═╡ 8f8606a1-bf7e-469d-bf63-7d93cee714c4
-string(exportpath, "-projections.gif")
 
 # ╔═╡ 911d4aa1-41cd-4eea-8e0f-1af6f8024290
 @bind go Button("Rerun simulation")
@@ -246,9 +264,6 @@ Following the analysis in [1], this notebook focuses on clockwise rotations in t
 
 # ╔═╡ fb578156-094b-43b1-8c64-740f64b193bc
 md" ## Simulation "
-
-# ╔═╡ 5e76a75a-3041-49f6-b5b6-96047b1d5bd4
-ideal = false
 
 # ╔═╡ b5ddea46-9aee-4ce9-8230-902611228ca7
 begin
@@ -654,15 +669,15 @@ let
 	
 	# Kraus operators -------------------------------------------------------------
 
-	H = 0. * id
-	# H(t::Time, r::Record) = (Δ0 + Δ1*r[1]) * σϕ/2 + ΔS * r[2] * σz/2 
+	# H = 0. * id
+	H(t::Time, r::Record) = (Δ0 + Δ1*r[1]) * σϕ/2 + ΔS * r[2] * σz/2 
 	J = idealDQM ? [(σz, ((1-η)*Γm))] : [(σz, ((1-η)*Γm + Γ2)), (σm, Γ1)]
 	C = [(σz, Γm, η/2), (im * σz, Γm, η/2)]
 	
 
 	# Bayesian simulation ---------------------------------------------------------
 	Random.seed!(seed2)
-	sol = bayesian(T, ρ0, H, J, C; dt=dt)
+	sol = fbayesian(T, ρ0, H, J, C; dt=dt)
 
 	global DQM = traj(sol)
 	
@@ -859,7 +874,7 @@ let
 	
 	# Bayesian simulation ---------------------------------------------------------
 	go
-	sol = bayesian(T, ρ0, H, J, C; dt=dt)
+	sol = bayesian(T, ρ0, H, [], []; dt=dt)
 	
 	global IB = traj(sol)
 	
@@ -918,6 +933,8 @@ let
 	
 	# System parameters ------------------------------------------------------------
 	# all times given in μs
+
+	ideal = !nonideal
 	
 	# initial state 
 	x0 = 0
@@ -1031,7 +1048,7 @@ end
 
 # ╔═╡ 6affc985-2426-42ed-a7be-4a18d21ccf27
 let
-	
+	ideal = !nonideal
 	# System parameters ------------------------------------------------------------
 	# all times given in μs
 	
@@ -1127,6 +1144,8 @@ let
 	
 	# System parameters ------------------------------------------------------------
 	# all times given in μs
+
+	ideal = !nonideal
 	
 
 	
@@ -1213,33 +1232,8 @@ begin
 	myplot(ηs, ps; add_marker=true, xguide="η", yguide="purity", title="purity of ensemble average (N = 100) vs. η")
 end
 
-# ╔═╡ 8e89504c-63ce-46e7-ae18-085ecd2b2fda
-using Dates
-
-# ╔═╡ 4c45fe3e-cd69-11eb-20cd-7bfb98c040cf
-begin
-	cd("/Users/sachagreenfield/Desktop/GitHub/QuantumCircuits.jl")
-	import Pkg
-	Pkg.activate(".")
-	
-	using PlutoUI
-	using LaTeXStrings
-	using Random
-	using Statistics
-	using Distributions
-	using QuantumCircuits
-	using Plots
-	using DataFrames
-	using Dates
-	
-	include("plotting.jl")
-	
-	md" ###### 🔶 Packages and julia files"
-end
-
 # ╔═╡ Cell order:
 # ╠═4c45fe3e-cd69-11eb-20cd-7bfb98c040cf
-# ╠═8e89504c-63ce-46e7-ae18-085ecd2b2fda
 # ╟─377a3336-20bd-4baa-a033-af8bbc8668a8
 # ╟─3edd54c6-4b52-41ff-a707-a6efce05e698
 # ╟─8f7c6440-eac8-49d3-bd23-c2545ec16830
@@ -1254,9 +1248,8 @@ end
 # ╟─3531558a-f9b7-4f6b-9800-884fe0b04712
 # ╠═f9eaaf70-4e0f-4503-8a64-2380682354ce
 # ╠═faf0b11c-4339-4a82-a23c-9d35eb9d10b4
-# ╟─67e9c47a-d688-4724-8b21-90472311951b
-# ╟─6bc3e01f-b3cb-4a32-ab6b-e5dcc967b07f
-# ╠═8f8606a1-bf7e-469d-bf63-7d93cee714c4
+# ╠═67e9c47a-d688-4724-8b21-90472311951b
+# ╠═6bc3e01f-b3cb-4a32-ab6b-e5dcc967b07f
 # ╠═df97d34b-16a7-49a0-a143-939f18248f48
 # ╠═62472483-7fae-4adc-976c-9275e9d5ebfc
 # ╟─3ff551a9-3a07-4a2f-928e-880b7e3ba1fc
@@ -1277,9 +1270,8 @@ end
 # ╟─a87a6bce-c5b6-4b04-9d14-d9656969d87b
 # ╟─fb578156-094b-43b1-8c64-740f64b193bc
 # ╟─c9d3c54e-acff-4a84-8f95-937ee1602350
-# ╟─5e76a75a-3041-49f6-b5b6-96047b1d5bd4
 # ╠═b5ddea46-9aee-4ce9-8230-902611228ca7
-# ╠═13e19d59-5132-45f3-bac1-3a3b3a7a12b2
+# ╟─13e19d59-5132-45f3-bac1-3a3b3a7a12b2
 # ╟─e486fbed-157c-4139-914c-ada6bb88d7b4
 # ╟─4898ab97-4058-4e70-a959-2962641d9611
 # ╟─6b93bb84-0ba1-44e8-910e-612793b3df3b

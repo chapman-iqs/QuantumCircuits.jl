@@ -1,5 +1,5 @@
 
-N = 1000
+N = 10
 writeblochs = false
 
 cd("/Users/sachagreenfield/Desktop/GitHub/QuantumCircuits.jl")

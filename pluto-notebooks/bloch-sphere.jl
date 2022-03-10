@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.4
+# v0.17.4
 
 using Markdown
 using InteractiveUtils
@@ -7,8 +7,9 @@ using InteractiveUtils
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
     quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
         local el = $(esc(element))
-        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : missing
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
     end
 end
@@ -174,20 +175,6 @@ let
 	md" ###### 🔻 Bayesian simulation (single-quadrature)"
 end
 
-# ╔═╡ 725dc4c3-cc74-4400-819c-2cffd06fbbf9
-let 
-	sim = B1
-	tt, xx, yy, zz = (sim.t, sim.x, sim.y, sim.z)
-	
-	if show_gif
-		anim = @animate for i ∈ range(1, length(tt), step=100)
-			blochsphere(xx[1:i], yy[1:i], zz[1:i], linewidth=1., linealpha=0.85, ax=true, viewϕ = ϕv) end
-		gif(anim, fps = 15)
-	else
-		blochsphere(xx, yy, zz, linewidth=1., linealpha=0.85, ax=true, viewϕ = ϕv)
-	end
-end
-
 # ╔═╡ 34a700bb-5809-4755-a7fa-def102c5fd4c
 let 
 	sim = B1
@@ -218,6 +205,42 @@ end
 
 
 
+# ╔═╡ d08be14b-8389-4416-bc4f-6c884d9c449e
+let
+	# parameters -----------------------------------------------------------------
+	ρ0 = DenseOperator(0.5 * (I + σx))
+	dt = 1e-3  # integration time-step
+	ΩR = 2π # Rabi frequency (rad * MHz)
+	ω = ΩR / 100
+
+	tf = 10.0
+	
+	# Kraus operators --------------------------------------------------------------
+
+	H(t) = ΩR * (cos(ω * t) * σx + sin(ω * t) * σy)
+	J = []
+	C = []
+	
+	global solb = traj(bayesian((0, tf), ρ0, H, J, C; dt=dt))
+	
+	
+	md" ###### 🔻 Bayesian simulation"
+end
+
+# ╔═╡ 725dc4c3-cc74-4400-819c-2cffd06fbbf9
+let 
+	sim = solb
+	tt, xx, yy, zz = (sim.t, sim.x, sim.y, sim.z)
+	
+	if show_gif
+		anim = @animate for i ∈ range(1, length(tt), step=100)
+			blochsphere(xx[1:i], yy[1:i], zz[1:i], linewidth=1., linealpha=0.85, ax=true, viewϕ = ϕv) end
+		gif(anim, fps = 15)
+	else
+		blochsphere(xx, yy, zz, linewidth=1., linealpha=0.85, ax=true, viewϕ = ϕv)
+	end
+end
+
 # ╔═╡ dc3e2dcb-5bf1-492d-8337-f366dcf0170b
 φdict = Dict("0" => 0, 
 				"π/8" => π/8, 
@@ -230,12 +253,13 @@ end
 # ╠═3edd54c6-4b52-41ff-a707-a6efce05e698
 # ╟─377a3336-20bd-4baa-a033-af8bbc8668a8
 # ╟─e43e5329-bd96-41ce-a183-1bd206204f65
-# ╟─ecc19d12-e53f-4904-b13f-7a2ccc4912d7
+# ╠═ecc19d12-e53f-4904-b13f-7a2ccc4912d7
+# ╠═d08be14b-8389-4416-bc4f-6c884d9c449e
 # ╟─02d2ca0b-20bf-4dc2-a8f8-e72b5ae40ed2
 # ╟─f3e7794e-a9a1-4103-8469-32a8e37d2d82
 # ╟─01b79d3d-a6ba-4523-a668-b78a455279cb
-# ╟─a12cdb8c-e9a1-4c2d-9811-cff266e152d8
-# ╟─725dc4c3-cc74-4400-819c-2cffd06fbbf9
+# ╠═a12cdb8c-e9a1-4c2d-9811-cff266e152d8
+# ╠═725dc4c3-cc74-4400-819c-2cffd06fbbf9
 # ╟─0a7f28c9-1d84-43e6-b62c-711a231a3972
 # ╟─34a700bb-5809-4755-a7fa-def102c5fd4c
 # ╟─d9f2f00f-4ee2-45b5-91d6-6552d6d5b6c1

@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.1
+# v0.17.4
 
 using Markdown
 using InteractiveUtils
@@ -255,7 +255,7 @@ begin
 	
 		# Plot time series --------------------------------------------------------
 		
-		legend := [:none :none :bottomright]
+		legend := [:none :none :outerright]
 		label --> [L"$x$" L"$y$" L"$z$" L"$Tr ( \rho^2 )$"]
 		xlabel --> "t (μs)"
 	    link := :both
@@ -584,7 +584,7 @@ begin
 	dt = 1e-3  # integration time-step
 
 	ΩR  = 2π * 3 # Rabi frequency (rad * MHz)
-	Γ = 40 #0.15 # Measurement dephasing rate (MHz)
+	Γ = 40. #0.15 # Measurement dephasing rate (MHz)
 	τ = 1/(2Γ) #  Measurement collapse timescale (μs)
 	η = 1 # collection efficiency
 end
@@ -678,7 +678,7 @@ let
 	
 	H = ΩR * σy/2
 	J = [(σz, ((1-η) * Γ))]
-	C = [(exp(im * ϕ) * σz, τ, η)]
+	C = [(exp(im * ϕ) * σz, Γ, η)]
 	
 	Random.seed!(1)
 	sol = bayesian((0, 2), ρ0, H, J, C; dt=dt)
@@ -877,14 +877,14 @@ end
 # ╟─282851f0-fa1d-42b1-a243-5620339129cc
 # ╟─259978cd-7888-4f38-bf83-e40719d9777b
 # ╟─8d749aee-829a-479c-ba65-b66b2d18bee3
-# ╟─4e50b40b-82fc-4eac-a96c-ac10546eecfe
+# ╠═4e50b40b-82fc-4eac-a96c-ac10546eecfe
 # ╟─9b91683a-e5a4-41e9-81fb-b84cb781cd36
 # ╟─ad636be5-a60b-4f36-9470-e33d5d3c891a
 # ╟─2662b242-1d39-4223-a600-8b5a5d6a148b
 # ╟─db19a712-aa39-4691-93dc-bd9d18f5db7e
 # ╟─cf5721a2-6f73-47e9-9b11-1c9562c29a03
 # ╟─d05919e8-48c5-40dd-95fe-151d793049d7
-# ╟─fac6aa1f-28ec-4e67-b513-6ba485e88eee
+# ╠═fac6aa1f-28ec-4e67-b513-6ba485e88eee
 # ╟─dbf9e12b-06b0-42cb-968b-d49f7d1c4e10
 # ╟─7a785533-08b8-48ce-94f1-ec219ac64196
 # ╠═0396d908-8123-49db-a1d6-a637651f81b5
@@ -896,7 +896,7 @@ end
 # ╟─082f9721-a5eb-4b78-93cc-a1dc9cc20ad4
 # ╟─f21f2ca8-83a9-4b78-8053-f6cfc9536338
 # ╟─64fef35f-b894-48db-9ad3-9939c57fcc66
-# ╠═6da939ad-8625-43c3-9537-169eab3e97f6
+# ╟─6da939ad-8625-43c3-9537-169eab3e97f6
 # ╟─3c55abb4-5114-4183-ba06-d12e2f4d8a01
 # ╟─a968952f-a64a-4882-a151-8a2d9a1723c7
 # ╟─d0957eb9-0df7-4015-9720-5fdb4d1df3b3

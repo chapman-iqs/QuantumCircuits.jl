@@ -87,6 +87,27 @@ Each qubit receives an identical time-dependent Rabi drive modulated by the stoc
 $H = \Omega_R (\tilde{r}(t) - r_{target}) (\hat \sigma_1^x \otimes I_2 + I_1 \otimes \hat \sigma_2^x).$
 """
 
+# ╔═╡ 5a01f315-4db7-4dac-8b98-891b5b8eef22
+md"""
+## Feedback protocol
+"""
+
+# ╔═╡ 70595335-c3f9-461f-802d-288c608a68da
+begin
+	testlist = []
+	for (i, n) in enumerate(5:10)
+		push!(testlist, (i,n))
+	end
+	testlist
+end
+
+# ╔═╡ f3cc4e10-afad-4f28-8915-8132de900b4f
+md"""
+Assuming homodyne measurement, there will be three DC voltages corresponding to the number eigenstates $\ket{\overline 0}$, $\ket{\overline 1}$, and $\ket {\overline 2}$ which we will call $V_0$, $V_1$, and $V_2$. In simulation, we model the measurement record as a shifted and stretched version of the experimental voltage trace, such that it has the form given above as $\tilde{r}(t)$. Then for each $V_i$ we can associate an $r_i = \langle \overline{i} | \hat n | \overline i \rangle$, i.e. $r_0 = 0$, $r_1 = 1$, $r_2 = 2$. 
+
+To control onto a specific target state, we set $r_{target} = r_i$. The Rabi drive effectively cancels the backaction when the system is in the target state, creating a point of stability there that the system will be drawn towards.
+"""
+
 # ╔═╡ e43e5329-bd96-41ce-a183-1bd206204f65
 begin
 	# Basis
@@ -132,10 +153,80 @@ begin
 	md"### 🔶 Hilbert space operators "
 end
 
+# ╔═╡ 282851f0-fa1d-42b1-a243-5620339129cc
+md"""
+## Bulk simulation
+"""
+
+# ╔═╡ 9f076306-27b0-4573-9385-a75964d4a670
+N = 300
+
+# ╔═╡ 016972b6-895f-4295-8a85-33377cf158fb
+md"""
+$ρ_0 \propto \epsilon \ket{11} + \gamma \ket{00} + (\ket{01} + \ket{10})$
+"""
+
+# ╔═╡ 12d22513-478c-4bb0-8077-513da10004e0
+tf = 5
+
 # ╔═╡ 6bf29e9a-3f01-4e0f-b9c6-1007c8007ffb
 md"""
-## Measurement-only evolution
+## Single simulation
 """
+
+# ╔═╡ e7b46d6f-2f2e-4b60-8684-ee65adcf1431
+begin
+	β = 2
+	ε, γ = (0, β)
+	ρ0 = normalize(dm(ε*(e ⊗ e) + γ*(g ⊗ g) +(e ⊗ g + g ⊗ e)))
+	dt = 1e-3  # integration time-step
+
+	Γ = 1.0 # Ensemble measurement dephasing rate (MHz)	
+	η = 1.0 # collection efficiency
+	ΩR = 0 # Rabi frequency (rad * MHz)
+
+	md" ### 🌀 Parameters"
+end
+
+# ╔═╡ 020ce994-b653-4024-9445-851da8af7aca
+let
+	Random.seed!()
+	# Kraus operators --------------------------------------------------------------
+	H = 0 * σx1
+	J = [(n, ((1 - η) * Γ))]
+	C = [(n, Γ, η)]
+
+	ρ00(ε, γ) = normalize(dm(ε*(e ⊗ e) + γ*(g ⊗ g) +(e ⊗ g + g ⊗ e)))
+
+	global nfε = map(1:N) do m
+					ε, γ = (β, 0)
+					sol = bayesian((0, tf), ρ00(ε, γ), H, J, C; dt=dt)
+					ρf = last(sol.ρ)
+					return round(real(expect(ρf, n)), digits=3)
+				end
+
+	global nfγ = map(1:N) do m
+					ε, γ = (0, β)
+					sol = bayesian((0, tf), ρ00(ε, γ), H, J, C; dt=dt)
+					ρf = last(sol.ρ)
+					return round(real(expect(ρf, n)), digits=3)
+				end
+	
+
+	md" ###### 🔻 Bayesian simulation"
+end
+
+# ╔═╡ 9da84b37-932c-4d17-94a5-6288d876f396
+nfε[nfε .> 1.9]
+
+# ╔═╡ 1ad5981d-e66f-4b71-b83d-21898723d9c6
+let
+	binrange = -0.2:0.1:2.2
+	histogram(round.(nfε, digits=1), bins=binrange, alpha=0.4, label="(ε, γ) = (β, 0)", title=string("final n for N = ", N, " runs, tf = ", tf, " μs, β = ", β))
+	histogram!(round.(nfγ, digits=1), bins=binrange, alpha=0.4, label="(ε, γ) = (0, β)", legend=:left)
+	# histogram!(n1f, bins=0:0.05:2.2, alpha=0.4, label="n1", barwidth=0.1)
+	# histogram!(n2f, bins=0:0.05:2.2, alpha=0.4, label="n2", barwidth=0.1)
+end
 
 # ╔═╡ cff9fded-2ecb-48fa-899d-202de36f74a9
 begin
@@ -170,58 +261,51 @@ begin
 	end
 end
 
-# ╔═╡ 467cb6d1-cbc2-482e-96fd-5432c7d18c6f
-lims = [-0.5,5]
-
 # ╔═╡ c15a1717-4c3a-4e49-8523-d6653b6e76b4
 md" ` seed = 1` $(@bind s Slider(1:1:100)) `100`"
 
 # ╔═╡ 4e50b40b-82fc-4eac-a96c-ac10546eecfe
 let
-	# parameters -----------------------------------------------------------------
-	β = 2
-	ε, γ = (0, β)
-	ρ0 = normalize(dm(ε*(e ⊗ e) + γ*(g ⊗ g) +(e ⊗ g + g ⊗ e)))
-	dt = 1e-3  # integration time-step
-
-	Γ = 1.0 # Ensemble measurement dephasing rate (MHz)	
-	η = 1.0 # collection efficiency
-	ΩR = 0 # Rabi frequency (rad * MHz)
-
-	tf = 10.0
-	
-	
 	# Kraus operators --------------------------------------------------------------
-
+	δ = 5
+	m = n - δ * I
+	
 	H = ΩR * (σx1 + σx2)
-	J = [(n, ((1 - η) * Γ))]
-	C = [(n, Γ, η)]
+	J = [(m, ((1 - η) * Γ))]
+	C = [(m, Γ, η)]
 	
 	Random.seed!(s)
-	global solb = bayesian((0, tf), ρ0, H, J, C; dt=dt)
+	global sol = bayesian((0, tf), ρ0, H, J, C; dt=dt)
 	
 	md" ###### 🔻 Bayesian simulation"
 end
 
+# ╔═╡ 2d3627cf-1a6e-4461-a747-b8d5b8c1ef2a
+begin
+	ns, n1s, n2s, x1s, x2s, y1s, y2s, z1s, z2s = [map(ρ -> real(expect(ρ, op)), sol.ρ) for op in [n, n1, n2, σx1, σx2, σy1, σy2, σz1, σz2]]
+
+	ggs, ges, egs, ees = [map(ρ -> real(expect(ρ, op)), sol.ρ) for op in [gg, ge, eg, ee]]
+
+	p1s = 0.5 * (1 .+ x1s.^2 .+ y1s.^2 .+ z1s.^2)
+	p2s = 0.5 * (1 .+ x2s.^2 .+ y2s.^2 .+ z2s.^2)
+
+	ps = map(ρ -> real(expect(ρ, ρ)), sol.ρ)
+
+end
+
 # ╔═╡ f6634cd0-990e-4e9f-bd21-f001719c52c4
-smoothed = smooth(solb.r[1], n=2000)
+smoothed = smooth(sol.r[1], n=2000)
 
 # ╔═╡ afa6e410-5c7a-48fa-b724-6419d04f39af
 md" s = $s "
 
-# ╔═╡ 5a01f315-4db7-4dac-8b98-891b5b8eef22
+# ╔═╡ 467cb6d1-cbc2-482e-96fd-5432c7d18c6f
+lims = [-0.5,5]
+
+# ╔═╡ f358182e-afd4-4173-bc62-e02f5dc45820
 md"""
-## Feedback
+# Misc testing
 """
-
-# ╔═╡ 886b22a3-7c42-4b33-8160-677644882689
-md" θs = 0 $(@bind θs Slider(0:0.1:1)) 1.0"
-
-# ╔═╡ 7d648c4d-cd49-4a0c-8583-76ea194cde07
-md" θs = $θs"
-
-# ╔═╡ 133b6939-10b2-4c8e-acf8-5658ca96a0f9
-md" # Utilities"
 
 # ╔═╡ d1ca8032-20b8-4a03-9315-70ba981d6ead
 begin
@@ -232,56 +316,81 @@ begin
 	const QOp = AbstractOperator
 end
 
-# ╔═╡ c931b23a-2925-4d91-b3a5-189188263649
-let
-	ρ0 = dm(g ⊗ g)
-	dt = 1e-3  # integration time-step
+# ╔═╡ 06ebf7d9-ff15-494f-bb12-1e80e8350954
+typeof([[1.0, 2.0, 3.0], [2.0, 5.0, 6.0]]) <: Record
 
-	Γ = 0.15 # Ensemble measurement dephasing rate (MHz)	
-	η = 1.0 # collection efficiency
-	ΩR(t) = (t < 3) ? 1.0 : 0.0 # Rabi frequency (rad * MHz)
+# ╔═╡ 99801e39-9cdc-4ed5-a995-8d9390f9df1c
+Ht(t::Time, r::Record) = (σx1 + σx2) * r[4]
 
-	tf = 20.0
-	ntarget = 1
-	
-	# Kraus operators --------------------------------------------------------------
-	H(t::Time, ρ::QOp) = ΩR(t) * (real(expect(ρ, n)) - ntarget) * (σx1 + σx2)
-	J = [(n, ((1 - η) * Γ))]
-	C = [(n, Γ, η)]
-	
-	# Random.seed!(s)
-	global solf = fbayesian((0.0, tf), ρ0, H, J, C; dt=dt)
-	
-	md" ###### 🔻 Bayesian simulation"
+# ╔═╡ e771ff26-3cce-4d70-8cab-8f809952aed1
+Ht(t::Time, ρ::QOp, td::Float64=0.0) = (σx1 + σx2) * expect(ρ, σx1)
+
+# ╔═╡ d0f4c5c2-130c-4606-9961-34143b4e241a
+begin
+	a::Time = 1.0
+	b::Record = [1., 2., 3.]
+	c::QOp = σx1
 end
 
-# ╔═╡ 628b368b-df65-45ba-806a-620db366936b
-length(solf.ρ)
+# ╔═╡ 872b5b6e-8037-4567-be59-d4d78c4e48d6
+typeof(a)
 
-# ╔═╡ b732893b-6f9b-4c29-b623-7ffcf9944f7b
-let
-	ρ0 = dm(g ⊗ g)
-	dt = 1e-3  # integration time-step
+# ╔═╡ 6f5afaae-d12a-44cd-b1c6-412d5e3b7463
+applicable(Ht, a, b)
 
-	Γ = 0.15 # Ensemble measurement dephasing rate (MHz)	
-	η = 1.0 # collection efficiency
-	τ = 1/(2Γ * η)
-	Δ0 = -sin(2θs)/(4τ)
-	Δ1 = sin(θs)/τ
+# ╔═╡ 4a0aede9-c524-4822-9c44-8c0574fed8a5
+Ht(a, c, 0.1)
 
-	tf = 20.0
-	ntarget = 1
-	
-	# Kraus operators --------------------------------------------------------------
-	H(t::Time, r::Vector{Float64}) = (Δ0 + Δ1 * r[1]) * (σx1 + σx2)
-	J = [(n, ((1 - η) * Γ))]
-	C = [(n, Γ, η)]
-	
-	# Random.seed!(s)
-	global solf2 = fbayesian((0.0, tf), ρ0, H, J, C; dt=dt)
-	
-	md" ###### 🔻 Bayesian simulation"
+# ╔═╡ ae06ea5c-3953-47d7-acba-4f30ce2626ba
+
+
+# ╔═╡ 673e37f9-0ca8-4fbb-bb18-e338a86c835d
+applicable(Ht, a, c, 0.0)
+
+# ╔═╡ d774492e-7617-485f-bfe6-aef1d069300f
+typeof(Ht(a, b))
+
+# ╔═╡ c8e4b323-897a-48bd-a82c-4db771edcb7e
+Ht(a, b)
+
+# ╔═╡ b4e9bf7b-7c53-463d-ac86-9f4d6c1f8f73
+typeof(Ht)
+
+# ╔═╡ d020d5cc-8655-4653-8e1a-ee9651752828
+Jtest = [[σx1, t -> 5 * t], [σx2, 5]]
+
+# ╔═╡ bc6ca064-21ac-4e0a-8b3e-6c53efee6ac0
+Jtest[typeof(Jtest) .<: Vector]
+
+# ╔═╡ b88d8e1c-42e0-4719-8c03-69b57a0c9010
+Jtest[typeof.(Jtest) .<: Vector]
+
+# ╔═╡ 5a181de1-b566-491b-addc-0836ed8c5b5e
+begin
+	clist, flist = [], []
+	for tup in Jtest
+		if typeof(tup[2]) <: Function
+			push!(flist, tup)
+		else
+			push!(clist, tup)
+		end
+	end
 end
+
+# ╔═╡ d5acf130-fe32-4a6e-bc43-30816b004331
+clist
+
+# ╔═╡ 08b38909-0318-47cb-9342-ba2a7876caba
+flist
+
+# ╔═╡ fde48c85-9920-40e0-b74c-0dc95ac95402
+typeof(5) <: Function
+
+# ╔═╡ 6ea8e73b-8e34-4666-8843-feea30ee1a1c
+typeof(6.0) <: Float64
+
+# ╔═╡ 133b6939-10b2-4c8e-acf8-5658ca96a0f9
+md" # Utilities"
 
 # ╔═╡ c1d743fb-356c-4d7a-a290-110c658e20dd
 getclosest(array, val) = argmin(abs.(val .- array))
@@ -475,6 +584,61 @@ begin
 	md" 💧 Bloch readout macro"
 end
 
+# ╔═╡ 3f0bf48d-a27d-492c-b2d7-2291222c4607
+colorangle(ϕ) = RGB(200/255,abs(sin(ϕ))*200/255,200/255)
+
+# ╔═╡ 7cb61b30-803b-4412-ad5a-65e3e10bda0a
+let
+	# l = @layout [readout{0.2h}; nexp{0.2h}; basisstates{0.2h}; bloch1{0.2h}; bloch2{0.2h}]
+	l = @layout [readout{0.3h}; nexp{0.15h}; basisstates{0.25h}; bloch1{0.15h}; bloch2{0.15h}]
+
+	p1 = plot(sol.t, smoothed, color = :black, ylims=lims, legend=:false, title=string("readout; seed = ", s))
+	plot!(twinx(), sol.t, sol.r, color = colorangle(0), left_margin=1mm, foreground_color_axis=colorangle(0), foreground_color_border=colorangle(0), legend=:false)
+	plot!(twinx(), sol.t, smoothed, color = :black, ylims=lims, frame=:none, legend=:false)
+	plot!(twinx(), [0, last(sol.t)], [1,1], color = :black, linestyle=:dash, ylims=lims, frame=:none, legend=:false, linewidth=2)
+	plot!(twinx(), [0, last(sol.t)], [0,0], color = :black, linestyle=:dash, ylims=lims, frame=:none, legend=:false, linewidth=2)
+	plot!(twinx(), [0, last(sol.t)], [2,2], color = :black, linestyle=:dash, ylims=lims, frame=:none, legend=:false, linewidth=2)
+
+	p2 = plot(sol.t, ns, ylabel=L"\langle n \rangle", color=colors2[8], title="excitation number", legend=:false, ylims=[0,2.2])
+
+	p3 = plot(sol.t, ggs, color=colors2[1], label=L"|00 \rangle")
+	plot!(sol.t, ges, color=colors2[2], label=L"|01 \rangle")
+	plot!(sol.t, egs, color=colors2[3], label=L"|10 \rangle")
+	plot!(sol.t, ees, color=colors2[4], label=L"|11 \rangle")
+	plot!(sol.t, ps, color=colors[4], label=L"Tr(\rho^2)", title="2-qubit states")
+
+	p4 = plot(sol.t, x1s, color=colors[1], label=L"x")
+	plot!(sol.t, y1s, color=colors[2], label=L"y")
+	plot!(sol.t, z1s, color=colors[3], label=L"z")
+	plot!(sol.t, p1s, color=colors[4], label=L"Tr(\rho_1^2)", title="qubit 1")
+
+	p5 = plot(sol.t, x2s, color=colors[1], label=L"x")
+	plot!(sol.t, y2s, color=colors[2], label=L"y")
+	plot!(sol.t, z2s, color=colors[3], label=L"z")
+	plot!(sol.t, p2s, color=colors[4], label=L"Tr(\rho_2^2)", title="qubit 2")
+
+	plot(p1, p2, p3, p4, p5,  layout = l, link=:y, size=(600,800), legendfontsize=10, titlefontsize=12)
+	
+end
+
+# ╔═╡ a427e58a-fa75-4d50-acab-da11e49dd1bf
+function plot_phases3(sim, ϕ, tfactor)
+	
+	index = Int64(floor(length(sim.t) * tfactor))
+	
+	
+	br = blochreadout3(ϕ, sim, tf=sim.t[index], ylims=[-1.1,1.5])
+	
+	plot!([(real(phases), imag(phases)), ([0, cos(ϕ)], [0, sin(ϕ)])],  inset = bbox(0, 0.1, 0.1, 0.1, :right), subplot=4, legend = :none, frame = :none, aspect_ratio = :equal, color = [:black colorangle(ϕ)], linewidth=[1 2])
+	
+	
+	plot!([(real(phases), imag(phases)), ([0, cos(ϕ + π/2)], [0, sin(ϕ + π/2)])],  inset = bbox(0, 0.38, 0.1, 0.1, :right), subplot=5, legend = :none, frame = :none, aspect_ratio = :equal, color = [:black colorangle(ϕ + π/2)], linewidth=[1 2])
+		
+
+	
+end
+	
+
 # ╔═╡ 2d2e530d-5e8a-4045-93bd-97ff99aecaa1
 begin
 	@userplot BlochReadout
@@ -543,128 +707,6 @@ begin
 	
 	md" 💧 Bloch readout macro"
 end
-
-# ╔═╡ 3f0bf48d-a27d-492c-b2d7-2291222c4607
-colorangle(ϕ) = RGB(200/255,abs(sin(ϕ))*200/255,200/255)
-
-# ╔═╡ 7cb61b30-803b-4412-ad5a-65e3e10bda0a
-let
-	# calculate expectation values --------------------------------------------
-	ns, n1s, n2s, x1s, x2s, y1s, y2s, z1s, z2s = [map(ρ -> real(expect(ρ, op)), sol.ρ) for op in [n, n1, n2, σx1, σx2, σy1, σy2, σz1, σz2]]
-
-	ggs, ges, egs, ees = [map(ρ -> real(expect(ρ, op)), sol.ρ) for op in [gg, ge, eg, ee]]
-
-	p1s = 0.5 * (1 .+ x1s.^2 .+ y1s.^2 .+ z1s.^2)
-	p2s = 0.5 * (1 .+ x2s.^2 .+ y2s.^2 .+ z2s.^2)
-
-	ps = map(ρ -> real(expect(ρ, ρ)), sol.ρ)
-
-	
-	# plot ----------------------------------------------------------------------
-	l = @layout [readout{0.3h}; nexp{0.15h}; basisstates{0.25h}; bloch1{0.15h}; bloch2{0.15h}]
-
-	p1 = plot(sol.t, smoothed, color = :black, ylims=lims, legend=:false, title=string("readout; seed = ", s))
-	plot!(twinx(), sol.t, sol.r, color = colorangle(0), left_margin=1mm, foreground_color_axis=colorangle(0), foreground_color_border=colorangle(0), legend=:false)
-	plot!(twinx(), sol.t, smoothed, color = :black, ylims=lims, frame=:none, legend=:false)
-	plot!(twinx(), [0, last(sol.t)], [1,1], color = :black, linestyle=:dash, ylims=lims, frame=:none, legend=:false, linewidth=2)
-	plot!(twinx(), [0, last(sol.t)], [0,0], color = :black, linestyle=:dash, ylims=lims, frame=:none, legend=:false, linewidth=2)
-	plot!(twinx(), [0, last(sol.t)], [2,2], color = :black, linestyle=:dash, ylims=lims, frame=:none, legend=:false, linewidth=2)
-
-	p2 = plot(sol.t, ns, ylabel=L"\langle n \rangle", color=colors2[8], title="excitation number", legend=:false, ylims=[0,2.2])
-
-	p3 = plot(sol.t, ggs, color=colors2[1], label=L"|00 \rangle")
-	plot!(sol.t, ges, color=colors2[2], label=L"|01 \rangle")
-	plot!(sol.t, egs, color=colors2[3], label=L"|10 \rangle")
-	plot!(sol.t, ees, color=colors2[4], label=L"|11 \rangle")
-	plot!(sol.t, ps, color=colors[4], label=L"Tr(\rho^2)", title="2-qubit states")
-
-	p4 = plot(sol.t, x1s, color=colors[1], label=L"x")
-	plot!(sol.t, y1s, color=colors[2], label=L"y")
-	plot!(sol.t, z1s, color=colors[3], label=L"z")
-	plot!(sol.t, p1s, color=colors[4], label=L"Tr(\rho_1^2)", title="qubit 1")
-
-	p5 = plot(sol.t, x2s, color=colors[1], label=L"x")
-	plot!(sol.t, y2s, color=colors[2], label=L"y")
-	plot!(sol.t, z2s, color=colors[3], label=L"z")
-	plot!(sol.t, p2s, color=colors[4], label=L"Tr(\rho_2^2)", title="qubit 2")
-
-	plot(p1, p2, p3, p4, p5,  layout = l, link=:y, size=(600,800), legendfontsize=10, titlefontsize=12)
-	
-end
-
-# ╔═╡ 27f3e4f2-8e75-4005-9f0c-c1fd2b504e17
-function plotresults(sol::QuantumCircuits.solution; lims=[-0.5,5])
-	# calculate expectation values --------------------------------------------
-	ns, n1s, n2s, x1s, x2s, y1s, y2s, z1s, z2s = [map(ρ -> real(expect(ρ, op)), sol.ρ) for op in [n, n1, n2, σx1, σx2, σy1, σy2, σz1, σz2]]
-
-	ggs, ges, egs, ees = [map(ρ -> real(expect(ρ, op)), sol.ρ) for op in [gg, ge, eg, ee]]
-
-	p1s = 0.5 * (1 .+ x1s.^2 .+ y1s.^2 .+ z1s.^2)
-	p2s = 0.5 * (1 .+ x2s.^2 .+ y2s.^2 .+ z2s.^2)
-
-	ps = map(ρ -> real(expect(ρ, ρ)), sol.ρ)
-
-	smoothed = smooth(sol.r[1], n=2000)
-
-	
-	# plot ----------------------------------------------------------------------
-	l = @layout [readout{0.3h}; nexp{0.15h}; basisstates{0.25h}; bloch1{0.15h}; bloch2{0.15h}]
-
-	p1 = plot(sol.t, smoothed, color = :black, ylims=lims, legend=:false, title=string("readout; seed = ", s))
-	plot!(twinx(), sol.t, sol.r, color = colorangle(0), left_margin=1mm, foreground_color_axis=colorangle(0), foreground_color_border=colorangle(0), legend=:false)
-	plot!(twinx(), sol.t, smoothed, color = :black, ylims=lims, frame=:none, legend=:false)
-	plot!(twinx(), [0, last(sol.t)], [1,1], color = :black, linestyle=:dash, ylims=lims, frame=:none, legend=:false, linewidth=2)
-	plot!(twinx(), [0, last(sol.t)], [0,0], color = :black, linestyle=:dash, ylims=lims, frame=:none, legend=:false, linewidth=2)
-	plot!(twinx(), [0, last(sol.t)], [2,2], color = :black, linestyle=:dash, ylims=lims, frame=:none, legend=:false, linewidth=2)
-
-	p2 = plot(sol.t, ns, ylabel=L"\langle n \rangle", color=colors2[8], title="excitation number", legend=:false, ylims=[0,2.2])
-
-	p3 = plot(sol.t, ggs, color=colors2[1], label=L"|00 \rangle")
-	plot!(sol.t, ges, color=colors2[2], label=L"|01 \rangle")
-	plot!(sol.t, egs, color=colors2[3], label=L"|10 \rangle")
-	plot!(sol.t, ees, color=colors2[4], label=L"|11 \rangle")
-	plot!(sol.t, ps, color=colors[4], label=L"Tr(\rho^2)", title="2-qubit states")
-
-	p4 = plot(sol.t, x1s, color=colors[1], label=L"x")
-	plot!(sol.t, y1s, color=colors[2], label=L"y")
-	plot!(sol.t, z1s, color=colors[3], label=L"z")
-	plot!(sol.t, p1s, color=colors[4], label=L"Tr(\rho_1^2)", title="qubit 1")
-
-	p5 = plot(sol.t, x2s, color=colors[1], label=L"x")
-	plot!(sol.t, y2s, color=colors[2], label=L"y")
-	plot!(sol.t, z2s, color=colors[3], label=L"z")
-	plot!(sol.t, p2s, color=colors[4], label=L"Tr(\rho_2^2)", title="qubit 2")
-
-	plot(p1, p2, p3, p4, p5,  layout = l, link=:y, size=(600,800), legendfontsize=10, titlefontsize=12, legend=:left)
-	
-end
-
-# ╔═╡ abf8b462-a380-49b3-988d-ba2c17f42c80
-plotresults(solb, lims=[-0.5,10])
-
-# ╔═╡ 8310a926-8f33-4047-991a-e2dec0bb5a08
-plotresults(solf, lims=[-0.5,10])
-
-# ╔═╡ 9f9db8b1-629b-4623-b1ce-93768634cc0a
-plotresults(solf2)
-
-# ╔═╡ a427e58a-fa75-4d50-acab-da11e49dd1bf
-function plot_phases3(sim, ϕ, tfactor)
-	
-	index = Int64(floor(length(sim.t) * tfactor))
-	
-	
-	br = blochreadout3(ϕ, sim, tf=sim.t[index], ylims=[-1.1,1.5])
-	
-	plot!([(real(phases), imag(phases)), ([0, cos(ϕ)], [0, sin(ϕ)])],  inset = bbox(0, 0.1, 0.1, 0.1, :right), subplot=4, legend = :none, frame = :none, aspect_ratio = :equal, color = [:black colorangle(ϕ)], linewidth=[1 2])
-	
-	
-	plot!([(real(phases), imag(phases)), ([0, cos(ϕ + π/2)], [0, sin(ϕ + π/2)])],  inset = bbox(0, 0.38, 0.1, 0.1, :right), subplot=5, legend = :none, frame = :none, aspect_ratio = :equal, color = [:black colorangle(ϕ + π/2)], linewidth=[1 2])
-		
-
-	
-end
-	
 
 # ╔═╡ 57e71783-8e44-453e-a1d9-42377ffe41e9
 function plot_phases(sim, ϕ, tfactor)
@@ -806,27 +848,50 @@ md"""
 # ╟─66d52a3a-edfd-4bdd-8c18-9f1a27041876
 # ╟─deb2a0f3-32d1-46f9-bfbe-2e197ead243d
 # ╟─58004c67-ca73-4095-b38f-e6658f1f998f
-# ╟─e43e5329-bd96-41ce-a183-1bd206204f65
+# ╟─5a01f315-4db7-4dac-8b98-891b5b8eef22
+# ╠═70595335-c3f9-461f-802d-288c608a68da
+# ╟─f3cc4e10-afad-4f28-8915-8132de900b4f
+# ╠═e43e5329-bd96-41ce-a183-1bd206204f65
+# ╟─282851f0-fa1d-42b1-a243-5620339129cc
+# ╠═9f076306-27b0-4573-9385-a75964d4a670
+# ╠═020ce994-b653-4024-9445-851da8af7aca
+# ╟─016972b6-895f-4295-8a85-33377cf158fb
+# ╠═9da84b37-932c-4d17-94a5-6288d876f396
+# ╠═1ad5981d-e66f-4b71-b83d-21898723d9c6
+# ╠═12d22513-478c-4bb0-8077-513da10004e0
 # ╟─6bf29e9a-3f01-4e0f-b9c6-1007c8007ffb
 # ╠═4e50b40b-82fc-4eac-a96c-ac10546eecfe
+# ╠═e7b46d6f-2f2e-4b60-8684-ee65adcf1431
+# ╠═2d3627cf-1a6e-4461-a747-b8d5b8c1ef2a
 # ╟─cff9fded-2ecb-48fa-899d-202de36f74a9
 # ╠═f6634cd0-990e-4e9f-bd21-f001719c52c4
-# ╟─467cb6d1-cbc2-482e-96fd-5432c7d18c6f
 # ╟─c15a1717-4c3a-4e49-8523-d6653b6e76b4
 # ╟─afa6e410-5c7a-48fa-b724-6419d04f39af
-# ╠═abf8b462-a380-49b3-988d-ba2c17f42c80
+# ╠═467cb6d1-cbc2-482e-96fd-5432c7d18c6f
 # ╟─7cb61b30-803b-4412-ad5a-65e3e10bda0a
-# ╟─5a01f315-4db7-4dac-8b98-891b5b8eef22
-# ╠═c931b23a-2925-4d91-b3a5-189188263649
-# ╠═628b368b-df65-45ba-806a-620db366936b
-# ╟─8310a926-8f33-4047-991a-e2dec0bb5a08
-# ╠═27f3e4f2-8e75-4005-9f0c-c1fd2b504e17
-# ╠═b732893b-6f9b-4c29-b623-7ffcf9944f7b
-# ╟─886b22a3-7c42-4b33-8160-677644882689
-# ╟─7d648c4d-cd49-4a0c-8583-76ea194cde07
-# ╠═9f9db8b1-629b-4623-b1ce-93768634cc0a
-# ╟─133b6939-10b2-4c8e-acf8-5658ca96a0f9
+# ╟─f358182e-afd4-4173-bc62-e02f5dc45820
 # ╠═d1ca8032-20b8-4a03-9315-70ba981d6ead
+# ╠═06ebf7d9-ff15-494f-bb12-1e80e8350954
+# ╠═99801e39-9cdc-4ed5-a995-8d9390f9df1c
+# ╠═e771ff26-3cce-4d70-8cab-8f809952aed1
+# ╠═d0f4c5c2-130c-4606-9961-34143b4e241a
+# ╠═872b5b6e-8037-4567-be59-d4d78c4e48d6
+# ╠═6f5afaae-d12a-44cd-b1c6-412d5e3b7463
+# ╠═4a0aede9-c524-4822-9c44-8c0574fed8a5
+# ╠═ae06ea5c-3953-47d7-acba-4f30ce2626ba
+# ╠═673e37f9-0ca8-4fbb-bb18-e338a86c835d
+# ╠═d774492e-7617-485f-bfe6-aef1d069300f
+# ╠═c8e4b323-897a-48bd-a82c-4db771edcb7e
+# ╠═b4e9bf7b-7c53-463d-ac86-9f4d6c1f8f73
+# ╠═d020d5cc-8655-4653-8e1a-ee9651752828
+# ╠═bc6ca064-21ac-4e0a-8b3e-6c53efee6ac0
+# ╠═b88d8e1c-42e0-4719-8c03-69b57a0c9010
+# ╠═5a181de1-b566-491b-addc-0836ed8c5b5e
+# ╠═d5acf130-fe32-4a6e-bc43-30816b004331
+# ╠═08b38909-0318-47cb-9342-ba2a7876caba
+# ╠═fde48c85-9920-40e0-b74c-0dc95ac95402
+# ╠═6ea8e73b-8e34-4666-8843-feea30ee1a1c
+# ╟─133b6939-10b2-4c8e-acf8-5658ca96a0f9
 # ╠═c1d743fb-356c-4d7a-a290-110c658e20dd
 # ╠═a2be6ad8-1ed5-4869-9741-106a348a9d82
 # ╠═d71e8206-8cb0-4399-8379-aba003e32ea2
