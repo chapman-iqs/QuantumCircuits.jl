@@ -1,21 +1,18 @@
-# QuantumCircuits.jl
+# QC-notebooks
 
-**QuantumCircuits.jl** is a numerical framework written in Julia for simulating quantum evolution, with a focus on superconducting circuits, and builds on [QuantumOptics.jl](https://github.com/qojulia/QuantumOptics.jl).
+Interactive notebooks based on QuantumCircuits.jl focusing on circuit QED and simulation of superconducting quantum devices.
 
 ## Usage
+You will need the latest versions of Julia and Pluto installed.
 
-```jl
-using QuantumOptics
-q = SpinBasis(1//2)
-ρ0 = dm(spindown(q))
-J(t) = [√Γ*σz]
-C(t) = [√(Γ*η)*σz]
-H(t) = [Ω*σy/2]
+Clone the repository on your computer. Then, you can follow these steps to run a notebook:
+* open a Terminal window in the `QC-notebooks` directory
+* remove the Manifest.toml file: `rm Manifest.toml`
+* start a Julia REPL in the same folder: `julia`
+* activate the environment: `] activate .`
+* resolve: `resolve`
+* escape out of packages < ctrl C >
+* `using Pluto`
+* `Pluto.run()`
 
-using QuantumCircuits
-tt, ρs, dy = rouchon(tspan, ρ0, H, J, C; dt=1e-4, dy=dy, fn=ρ->ρ)
-tt, ρs, dy = bayesian(tspan, ρ0, H, J, C; dt=1e-4, dy=dy, fn=ρ->ρ)
-tt, ρss, dys = ensemble(method, tspan, ρ0, H, J, C; N=10, dt=1e-4, dy=dy, fn=ρ->ρ)
-```
-
-[Efficient Quantum Filtering for Quantum Feedback Control](https://arxiv.org/abs/1410.5345) (Pierre Rouchon, Jason F. Ralph)
+A browser window will open and you will see the Pluto interface. Then, you can open a notebook by entering its path, e.g. `notebooks/excitation-feedback.jl`
