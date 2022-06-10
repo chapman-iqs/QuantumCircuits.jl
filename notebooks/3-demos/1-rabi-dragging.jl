@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.19.5
 
 using Markdown
 using InteractiveUtils
@@ -17,7 +17,7 @@ end
 # ╔═╡ d3c8c931-efb2-4bb3-9ff1-b32ea59753cb
 begin
 
-	directory_name = "QC-notebooks"
+	directory_name = "QuantumCircuits.jl"
 	path = let 
 			arr = split(pwd(), "/")
 			index = findfirst(s -> s == directory_name, arr)
@@ -35,20 +35,18 @@ begin
 	using Distributions
 	using QuantumCircuits
 	using Plots
-
-	include("notebooks/table-of-contents.jl")
-	include("notebooks/resources.jl")
-
 	
 	include("utilities/plotting.jl")
 	include("utilities/utilities.jl")
 	include("utilities/single-qubit-operators.jl")
+
+	
+	include("notebooks/table-of-contents.jl")
+	include("resources.jl")
+
 	
 	md" # Packages and julia files"
 end
-
-# ╔═╡ 3edd54c6-4b52-41ff-a707-a6efce05e698
-TableOfContents(title="Rabi dragging")
 
 # ╔═╡ 64dd4d12-4473-4199-92f0-56ba1afd38dc
 md"""
@@ -57,6 +55,9 @@ In this interactive notebook, we'll explore adiabatically changing the Rabi axis
 
 # ╔═╡ 8166c912-cbd1-4f80-bacf-cb91820ae077
 mdp(table_of_contents📔)
+
+# ╔═╡ 3edd54c6-4b52-41ff-a707-a6efce05e698
+TableOfContents(title="Rabi dragging")
 
 # ╔═╡ 2f02e4be-09b6-43ce-af0c-556626fa074d
 md"""

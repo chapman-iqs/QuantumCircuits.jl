@@ -17,7 +17,7 @@ end
 # ╔═╡ edf82b03-419b-41c3-9bae-a348658b57a2
 begin
 
-	directory_name = "QC-notebooks"
+	directory_name = "QuantumCircuits.jl"
 	path = let 
 			arr = split(pwd(), "/")
 			index = findfirst(s -> s == directory_name, arr)

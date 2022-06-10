@@ -17,7 +17,7 @@ end
 # ╔═╡ 9b379ec4-cdfe-4110-ac35-39a6653cfa2b
 begin
 
-	directory_name = "QC-notebooks"
+	directory_name = "QuantumCircuits.jl"
 	path = let 
 			arr = split(pwd(), "/")
 			index = findfirst(s -> s == directory_name, arr)
@@ -35,12 +35,12 @@ begin
 	using Distributions
 	using QuantumCircuits
 	using Plots
-	
-	include("notebooks/table-of-contents.jl")
-	include("notebooks/resources.jl")
 
 	include("utilities/qubit-resonator-operators.jl")
 	include("utilities/plotting.jl")
+
+	include("notebooks/table-of-contents.jl")
+	include("resources.jl")
 	
 	md" # Packages and julia files"
 end
@@ -89,6 +89,9 @@ md"""
 
 # ╔═╡ afc18faf-9a07-4974-8b9e-bffc44d5429e
 1/1.56
+
+# ╔═╡ 8af5af9f-a6cd-41a8-8c34-db981bee7096
+
 
 # ╔═╡ 7e62e6c6-aa3c-4350-901c-15d017b8db42
 md" # Utilities "
@@ -671,6 +674,7 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╠═678a2b09-e84e-4e33-928e-239b4f335049
 # ╠═4bf1f0c9-3d5f-4976-b298-18bdba0c77ff
 # ╠═16801edb-ca17-49c5-926b-e61c9780908f
+# ╠═8af5af9f-a6cd-41a8-8c34-db981bee7096
 # ╟─7e62e6c6-aa3c-4350-901c-15d017b8db42
 # ╟─b4ca38d2-e56b-4977-893d-3b3e856e238d
 # ╟─5934b164-fab7-4a9c-ab1f-a06296fb8b58

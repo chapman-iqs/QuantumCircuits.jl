@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.19.5
 
 using Markdown
 using InteractiveUtils
@@ -7,7 +7,7 @@ using InteractiveUtils
 # ╔═╡ 1994807c-85a7-4309-8786-c1b5d2dd6b86
 begin
 
-	directory_name = "QC-notebooks"
+	directory_name = "QuantumCircuits.jl"
 	path = let 
 			arr = split(pwd(), "/")
 			index = findfirst(s -> s == directory_name, arr)
@@ -26,12 +26,12 @@ begin
 	using Plots
 	using QuantumCircuits
 
-	include("notebooks/table-of-contents.jl")
-	include("notebooks/resources.jl")
-
 	include("utilities/single-qubit-operators.jl")
 	include("utilities/utilities.jl")
 	include("utilities/plotting.jl")
+
+	include("notebooks/table-of-contents.jl")
+	include("resources.jl")
 
 	md" # Packages and julia files"
 	

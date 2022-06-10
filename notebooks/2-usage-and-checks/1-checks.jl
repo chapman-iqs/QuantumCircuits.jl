@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.19.5
 
 using Markdown
 using InteractiveUtils
@@ -14,10 +14,10 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ 75236fca-cfac-11eb-2ffe-c394a1c504cf
+# ╔═╡ 41332d40-c450-4346-93ea-cdb6d71d82eb
 begin
 
-	directory_name = "QC-notebooks"
+	directory_name = "QuantumCircuits.jl"
 	path = let 
 			arr = split(pwd(), "/")
 			index = findfirst(s -> s == directory_name, arr)
@@ -35,15 +35,18 @@ begin
 	using Plots
 	using QuantumCircuits
 
-	include("notebooks/table-of-contents.jl")
-	include("notebooks/resources.jl")
-
 	include("utilities/single-qubit-operators.jl")
 	include("utilities/utilities.jl")
 	include("utilities/plotting.jl")
+
+	include("notebooks/table-of-contents.jl")
+	include("resources.jl")
 	
 	
 end
+
+# ╔═╡ 75236fca-cfac-11eb-2ffe-c394a1c504cf
+
 
 # ╔═╡ 32746f87-236e-4e09-9e19-cfc645f7296e
 TableOfContents(title="Solver checks")
@@ -389,3 +392,4 @@ bloch_plots_records(sols, η0_sol)
 # ╠═cec64cc5-ee9d-4f2b-a44d-53d52ea64a1b
 # ╠═8245a294-8615-4baf-8484-89d133a25230
 # ╠═3a51d3be-248c-44b2-829a-29cdc0cda6d3
+# ╠═41332d40-c450-4346-93ea-cdb6d71d82eb

@@ -6,7 +6,7 @@ using InteractiveUtils
 
 # ╔═╡ 75236fca-cfac-11eb-2ffe-c394a1c504cf
 begin
-	directory_name = "QC-notebooks"
+	directory_name = "QuantumCircuits.jl"
 	path = let 
 			arr = split(pwd(), "/")
 			index = findfirst(s -> s == directory_name, arr)
@@ -453,9 +453,9 @@ version = "16.2.1+1"
 # ╟─d4b07505-53de-4c53-8ccb-82ae02f86dcd
 # ╟─94b1dcfb-340b-4281-9af8-2328293e7ef9
 # ╟─8be32eea-7335-493c-963e-c5f68f2e8096
-# ╟─3ddb3f0f-47a5-4932-afca-39f7b0a71d6f
-# ╟─8627ef8f-99fa-4b9a-b99d-d0e1912f73ec
-# ╟─13b8f2bb-f72e-4258-81a1-f4a7c35ff1e0
+# ╠═3ddb3f0f-47a5-4932-afca-39f7b0a71d6f
+# ╠═8627ef8f-99fa-4b9a-b99d-d0e1912f73ec
+# ╠═13b8f2bb-f72e-4258-81a1-f4a7c35ff1e0
 # ╟─6846fd9e-29cb-44cb-9e16-b5421000a52e
 # ╟─3f99dd1a-20a5-4715-8bda-411ba1790440
 # ╟─543db20b-af94-46ba-90a9-274769f2d0a9

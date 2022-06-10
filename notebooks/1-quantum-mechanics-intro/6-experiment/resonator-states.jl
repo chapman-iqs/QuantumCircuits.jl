@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.19.5
 
 using Markdown
 using InteractiveUtils
@@ -17,7 +17,7 @@ end
 # ╔═╡ 3fd3cecc-fd75-44f0-9447-73e32d6bdd9a
 begin
 
-	directory_name = "QC-notebooks"
+	directory_name = "QuantumCircuits.jl"
 	path = let 
 			arr = split(pwd(), "/")
 			index = findfirst(s -> s == directory_name, arr)
@@ -35,12 +35,12 @@ begin
 	using Distributions
 	using QuantumCircuits
 	using Plots
-	
-	include("notebooks/table-of-contents.jl")
-	include("notebooks/resources.jl")
 
 	include("utilities/single-qubit-operators.jl")
 	include("utilities/plotting.jl")
+
+	include("notebooks/table-of-contents.jl")
+	include("resources.jl")
 	
 	md" ###### 🔶 Packages and julia files"
 end
@@ -1222,7 +1222,6 @@ end
 hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]))
 
 # ╔═╡ Cell order:
-# ╟─3fd3cecc-fd75-44f0-9447-73e32d6bdd9a
 # ╟─fb2e100c-ca94-4bf5-8357-6023a5a4e6af
 # ╟─58fb0899-75d9-415f-8a5c-b857a7ef394d
 # ╟─676de90a-5ca5-49ba-a776-617c5a47aefa
@@ -1326,3 +1325,4 @@ hint(text; title="Hint") = Markdown.MD(Markdown.Admonition("hint", title, [text]
 # ╟─dfb8cf89-86f5-4ab9-aac3-5867130fd6bd
 # ╟─b01d4d05-7b32-4bd4-b554-e85abca61595
 # ╟─7a17cf5d-db67-499c-886f-2c56683719f9
+# ╠═3fd3cecc-fd75-44f0-9447-73e32d6bdd9a
