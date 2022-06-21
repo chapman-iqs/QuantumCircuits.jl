@@ -338,6 +338,7 @@ function bloch_plots(sols::Vector{Solution}; alpha=0.1, N=50)
 		end
 		
 	end
+
 	
 	
 	# plot ----------------------------------------------------------------------
@@ -768,7 +769,7 @@ version = "16.2.1+1"
 """
 
 # ╔═╡ Cell order:
-# ╟─59173935-7989-4ca3-a0f7-5fe26cde1127
+# ╠═59173935-7989-4ca3-a0f7-5fe26cde1127
 # ╟─5b8ed51f-0f75-494e-b3a3-745e0f17f8ed
 # ╟─30061cc8-c84f-43b1-830d-a6dc2d9fc540
 # ╟─904ad4eb-20a9-41b7-8862-784aab3f04b5

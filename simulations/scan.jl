@@ -5,16 +5,12 @@ cd(path_to_repo)
 
 using Pkg
 Pkg.activate(".")
-using Statistics
-using LsqFit
-using CSV
-using DataFrames
-using Dates
-using QuantumCircuits
-using LaTeXStrings
-using ProgressMeter
 
+using Statistics, LsqFit
+using CSV, DataFrames, Dates, LaTeXStrings, ProgressMeter
+using QuantumCircuits
 using Distributed
+
 while true
 	print(string("There are ", Sys.CPU_THREADS, " logical cores available. \nHow many processes do you want to add? "))
 	procs = readline()
