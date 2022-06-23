@@ -35,16 +35,20 @@ end
 
 """
 	expectations(sol::Solution, op::State)
+	expectations(ρs::Vector{State}, op::State)
 
-Gives a time series of expectation values of op for the density matrices sol.ρ.
+Gives a time series of expectation values of op for the density matrices sol.ρ or ρs.
 
 ### Returns :: Vector{Float64}
 """
-function expectations(sol::Solution, op::QOp)
-	map(state -> real(expect(op, state)), sol.ρ)
+function expectations(ρs::Vector{State}, op::QOp)
+	map(state -> real(expect(op, state)), ρs)
 end
-function expectations(sol::Solution, op::Ket)
-	map(state -> real(expect(dm(op), state)), sol.ρ)
+function expectations(ρs::Vector{State}, op::Ket)
+	map(state -> real(expect(dm(op), state)), ρs)
+end
+function expectations(sol::Solution, op)
+	expectations(sol.ρ, op)
 end
 
 
