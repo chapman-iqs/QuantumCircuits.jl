@@ -119,9 +119,22 @@ function ensemble(solve, (t0, tf), ρ, H::Union{Function, QOp}, J, C; dt=1e-4, r
 
     solutions = @showprogress pmap(i -> begin
 		rs = length(records) > 0 ? records[i] : Record[]
-		return bayesian((t0, tf), ρ, H, J, C; dt=dt, records=rs, kwargs...)
+		return solve((t0, tf), ρ, H, J, C; dt=dt, records=rs, kwargs...)
 
     end, 1:N; batch_size=batch_size)
+
+	return length(ops) == 0 ?
+					solutions :
+					map(op -> [expectations(sol, op) for sol in solutions], ops)
+end
+"Alternatively, ensemble can take a vector of Hamiltonians. It will run bayesian once for each Hamiltonian."
+function ensemble(solve, (t0, tf), ρ, Hlist::Vector, J, C; dt=1e-4, records=Vector{Record}[], batch_size=10, ops=[], kwargs...)
+
+    solutions = @showprogress pmap(H -> begin
+		rs = length(records) > 0 ? records[i] : Record[]
+		return solve((t0, tf), ρ, H, J, C; dt=dt, records=rs, kwargs...)
+
+    end, Hlist; batch_size=batch_size)
 
 	return length(ops) == 0 ?
 					solutions :
@@ -130,7 +143,7 @@ end
 function ensemble(solve, (t0, tf), ρ, (Hs, Hf), J, C; dt=1e-4, N=10, batch_size=10, ops=[], kwargs...)
 
     solutions = @showprogress pmap(i -> begin
-		return bayesian((t0, tf), ρ, (Hs, Hf), J, C; dt=dt, kwargs...)
+		return solve((t0, tf), ρ, (Hs, Hf), J, C; dt=dt, kwargs...)
     end, 1:N; batch_size=batch_size)
 	# returns a vector of tuples: Vector{Tuple{Solution, Solution}} corresponding to system and filter solutions
 
