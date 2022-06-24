@@ -155,6 +155,21 @@ function ensemble(solve, (t0, tf), ρ, (Hs, Hf), J, C; dt=1e-4, N=10, batch_size
 		return (sys_exps, fil_exps)
 	end
 end
+function ensemble(solve, (t0, tf), ρ, Htuples::Vector{Tuple}, J, C; dt=1e-4, N=10, batch_size=10, ops=[], kwargs...)
+
+    solutions = @showprogress pmap(Htuples) do Htuple
+		return solve((t0, tf), ρ, Htuple, J, C; dt=dt, kwargs...)
+    end, 1:N; batch_size=batch_size)
+	# returns a vector of tuples: Vector{Tuple{Solution, Solution}} corresponding to system and filter solutions
+
+	if length(ops) == 0
+		return solutions
+	else
+		sys_exps = map(op -> [expectations(sys, op) for (sys, _) in solutions], ops)
+		fil_exps = map(op -> [expectations(fil, op) for (_, fil) in solutions], ops)
+		return (sys_exps, fil_exps)
+	end
+end
 
 
 

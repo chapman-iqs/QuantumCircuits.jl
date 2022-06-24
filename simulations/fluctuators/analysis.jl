@@ -41,14 +41,14 @@ end
 
 """
 Uses LsqFit package to do a linear fit to log-log data. The PSD for a (1/f)^α spectrum looks
-like a line of slope α in log-log space.
+like a line of slope -α in log-log space.
 """
 function fitPSD(freqs, psd)
 	logfreqs = log10.(freqs)
 	logPSD = log10.(psd)
 
 	model(f, p) = p[1] .* f .+ p[2]
-	p0 = [-2, 8]
+	p0 = [-2.0, 6.0]
 
 	fit = curve_fit(model, logfreqs, logPSD, p0)
 	param = fit.param
