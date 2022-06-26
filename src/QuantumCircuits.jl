@@ -84,24 +84,24 @@ N :: Int64 = 10								-- number of trajectories
 
 """
 
-function ensemble(solve, (t0, tf), ρ, H::Union{Function, QOp}, J, C; dt=1e-4, records=Vector{Record}[], N=10, batch_size=10, ops=[], kwargs...)
+function ensemble(solve, (t0, tf), ρ, H::Union{Function, QOp}, J, C; dt=1e-4, records=Vector{Record}[], N=10, batch_size=10, ops=[], showprogress=true, kwargs...)
 
-    solutions = @showprogress pmap(i -> begin
+	p = Progress(N, enabled=showprogress)
+	solutions = progress_pmap(1:N, progress=p; batch_size=batch_size) do i
 		rs = length(records) > 0 ? records[i] : Record[]
 		return solve((t0, tf), ρ, H, J, C; dt=dt, records=rs, kwargs...)
-
-    end, 1:N; batch_size=batch_size)
+	end
 
 	return length(ops) == 0 ?
 					solutions :
 					map(op -> [expectations(sol, op) for sol in solutions], ops)
 end
-function ensemble(solve, (t0, tf), ρ, (Hs, Hf)::Tuple, J, C; dt=1e-4, N=10, batch_size=10, ops=[], kwargs...)
+function ensemble(solve, (t0, tf), ρ, (Hs, Hf)::Tuple, J, C; dt=1e-4, N=10, batch_size=10, ops=[], showprogress=true, kwargs...)
 
-    solutions = @showprogress pmap(i -> begin
+	p = Progress(N, enabled=showprogress)
+	solutions = progress_pmap(1:N, progress=p; batch_size=batch_size) do i
 		return solve((t0, tf), ρ, (Hs, Hf), J, C; dt=dt, kwargs...)
-    end, 1:N; batch_size=batch_size)
-	# returns a vector of tuples: Vector{Tuple{Solution, Solution}} corresponding to system and filter solutions
+	end
 
 	if length(ops) == 0
 		return solutions
@@ -113,11 +113,12 @@ function ensemble(solve, (t0, tf), ρ, (Hs, Hf)::Tuple, J, C; dt=1e-4, N=10, bat
 end
 "Alternatively, ensemble can take a vector of Hamiltonians. It will run bayesian once for each Hamiltonian. Does not yet implement
 inputting records."
-function ensemble(solve, (t0, tf), ρ, Hlist::Vector, J, C; dt=1e-4, batch_size=10, ops=[], kwargs...)
+function ensemble(solve, (t0, tf), ρ, Hlist::Vector, J, C; dt=1e-4, batch_size=10, ops=[], showprogress=true, kwargs...)
 
-    solutions = @showprogress pmap(H -> begin
-		return solve((t0, tf), ρ, H, J, C; dt=dt, kwargs...)
-    end, Hlist; batch_size=batch_size)
+	p = Progress(length(Hlist), enabled=showprogress)
+	solutions = progress_pmap(Hlist, progress=p; batch_size=batch_size) do H
+	    return solve((t0, tf), ρ, H, J, C; dt=dt, kwargs...)
+	end
 
 	return length(ops) == 0 ?
 					solutions :
