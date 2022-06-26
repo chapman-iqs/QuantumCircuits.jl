@@ -126,9 +126,9 @@ function ensemble(solve, (t0, tf), ρ, (Hs, Hf), J, C; dt=1e-4, N=10, batch_size
 end
 function ensemble(solve, (t0, tf), ρ, Htuples::Vector{Tuple}, J, C; dt=1e-4, N=10, batch_size=10, ops=[], kwargs...)
 
-    solutions = @showprogress pmap(Htuples) do Htuple
+    solutions = @showprogress pmap(Htuple -> begin
 		return solve((t0, tf), ρ, Htuple, J, C; dt=dt, kwargs...)
-    end, 1:N; batch_size=batch_size)
+    end, Htuples; batch_size=batch_size)
 	# returns a vector of tuples: Vector{Tuple{Solution, Solution}} corresponding to system and filter solutions
 
 	if length(ops) == 0
