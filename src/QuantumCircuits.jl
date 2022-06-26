@@ -96,20 +96,7 @@ function ensemble(solve, (t0, tf), ρ, H::Union{Function, QOp}, J, C; dt=1e-4, r
 					solutions :
 					map(op -> [expectations(sol, op) for sol in solutions], ops)
 end
-"Alternatively, ensemble can take a vector of Hamiltonians. It will run bayesian once for each Hamiltonian."
-function ensemble(solve, (t0, tf), ρ, Hlist::Vector, J, C; dt=1e-4, records=Vector{Record}[], batch_size=10, ops=[], kwargs...)
-
-    solutions = @showprogress pmap(H -> begin
-		rs = length(records) > 0 ? records[i] : Record[]
-		return solve((t0, tf), ρ, H, J, C; dt=dt, records=rs, kwargs...)
-
-    end, Hlist; batch_size=batch_size)
-
-	return length(ops) == 0 ?
-					solutions :
-					map(op -> [expectations(sol, op) for sol in solutions], ops)
-end
-function ensemble(solve, (t0, tf), ρ, (Hs, Hf), J, C; dt=1e-4, N=10, batch_size=10, ops=[], kwargs...)
+function ensemble(solve, (t0, tf), ρ, (Hs, Hf)::Tuple, J, C; dt=1e-4, N=10, batch_size=10, ops=[], kwargs...)
 
     solutions = @showprogress pmap(i -> begin
 		return solve((t0, tf), ρ, (Hs, Hf), J, C; dt=dt, kwargs...)
@@ -124,20 +111,17 @@ function ensemble(solve, (t0, tf), ρ, (Hs, Hf), J, C; dt=1e-4, N=10, batch_size
 		return (sys_exps, fil_exps)
 	end
 end
-function ensemble(solve, (t0, tf), ρ, Htuples::Vector{Tuple}, J, C; dt=1e-4, N=10, batch_size=10, ops=[], kwargs...)
+"Alternatively, ensemble can take a vector of Hamiltonians. It will run bayesian once for each Hamiltonian. Does not yet implement
+inputting records."
+function ensemble(solve, (t0, tf), ρ, Hlist::Vector, J, C; dt=1e-4, batch_size=10, ops=[], kwargs...)
 
-    solutions = @showprogress pmap(Htuple -> begin
-		return solve((t0, tf), ρ, Htuple, J, C; dt=dt, kwargs...)
-    end, Htuples; batch_size=batch_size)
-	# returns a vector of tuples: Vector{Tuple{Solution, Solution}} corresponding to system and filter solutions
+    solutions = @showprogress pmap(H -> begin
+		return solve((t0, tf), ρ, H, J, C; dt=dt, kwargs...)
+    end, Hlist; batch_size=batch_size)
 
-	if length(ops) == 0
-		return solutions
-	else
-		sys_exps = map(op -> [expectations(sys, op) for (sys, _) in solutions], ops)
-		fil_exps = map(op -> [expectations(fil, op) for (_, fil) in solutions], ops)
-		return (sys_exps, fil_exps)
-	end
+	return length(ops) == 0 ?
+					solutions :
+					map(op -> [expectations(sol, op) for sol in solutions], ops)
 end
 
 
