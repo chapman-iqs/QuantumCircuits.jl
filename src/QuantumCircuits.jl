@@ -4,6 +4,10 @@ using Reexport
 @reexport using QuantumOpticsBase
 using Distributions, Distributed, ProgressMeter
 
+export bayesian, rouchon, ensemble
+export δ, fidelity, coarse_grain, subselect, expectations
+export Timescale, Rate, Efficiency, Record, Readout, QOp, State, Solution, Ensemble
+
 #################################
 # Abstract types and type aliases
 abstract type QObj <: Any end
@@ -842,9 +846,7 @@ function subselect(a=[]; n=2)
     a[filter(x -> x%n==0, eachindex(a))]
 end
 
-export bayesian, rouchon, ensemble
-export δ, fidelity, coarse_grain, subselect, expectations
-export Timescale, Rate, Efficiency, Record, Readout, QOp, State, Solution
+
 
 
 end # module
