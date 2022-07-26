@@ -1,4 +1,3 @@
-
 """
 	fidelity(ρ::State, σ::State)
 
@@ -34,38 +33,3 @@ end
 
 "Kronecker delta function"
 δ(i,j) = Int(i == j);
-
-"""
-	mutable struct Ensemble(
-				t::Vector{Timescale}, 	-- times of simulation
-				sols::Vector{Solution}, -- vector of `QuantumCircuits.Solution`s containing density matrices and measurement records
-				exps,					-- expectation values of basis operators
-				basis::Symbol) 			-- symbol representing basis of expectation values
-
-Wrapper for `QuantumCircuits.Solution`s and their expectation values in a given basis.
-Dispatches on arguments to provide a simple wrapper for a Vector of `Solution`s, or
-if a basis is provided, calculates expectation values in that basis.
-
-###
-Ensemble(sols::Vector{Solution}) 				-- returns Ensemble(sols[1].t, sols, (), Symbol())
-Ensemble(sols::Vector{Solution}, basis::Symbol) -- returns Ensemble(sols[1].t, sols, exps, basis)
-Ensemble(ens::Ensemble, basis::Symbol)			-- returns Ensemble(sols[1].t, sols, exps, basis)
-
-"""
-mutable struct Ensemble
-	t::Vector{Timescale}
-	sols::Vector{Solution}
-	exps
-	basis::Symbol
-end
-Ensemble(sols::Vector{Solution}) = Ensemble(sols[1].t, sols, (), Symbol())
-Ensemble(sols::Vector{Solution}, basis::Symbol) =
-	let b = eval(basis)
-	exps = [map(sol -> expectations(sol, op), sols) for op in b]
-	return Ensemble(sols[1].t, sols, exps, basis)
-end
-Ensemble(ens::Ensemble, basis::Symbol) =
-	let b = eval(basis)
-	exps = [map(sol -> expectations(sol, op), ens.sols) for op in b]
-	return Ensemble(ens.t, ens.sols, exps, basis)
-end

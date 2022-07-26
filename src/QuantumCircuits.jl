@@ -6,37 +6,11 @@ using Distributions, Distributed, ProgressMeter
 
 export bayesian, rouchon, ensemble
 export δ, fidelity, coarse_grain, subselect, expectations
-export Timescale, Rate, Efficiency, Record, Readout, QOp, State, Solution, Ensemble
-
-#################################
-# Abstract types and type aliases
-abstract type QObj <: Any end
-
-# Note implementation is light-weight, using mostly type aliases
-# for the features in Base that do all the real work
-const Timescale = const Rate = const Efficiency = Real
-const Record = Vector{Float64}	# Measurement record [ra_1, ra_2, ..., ra_t, ... , ra_f] corresponding to measurement
-								# outcomes of a single observable a **over time**
-const Readout = Vector{Float64}	# Readout [ra_t, rb_t, rc_t, ... ] corresponding to measurement outcomes of measured
-								# observables {a, b, c}, etc. at a **single time** t
-								# Note that the transpose of a Vector of Records is a Vector of Readouts, and vice versa
-const QOp = AbstractOperator
-const State = Union{Ket, QOp}
-
-# types for testing function argument types using `applicable`
-const tt = 0.0 # Timescale
-const rr = [0.0] # Readout
-const ρρ = identityoperator(SpinBasis(1//2)) # State
+export Timescale, Times, Rate, Efficiency, Record, Records, Readout, Readouts
+export QOp, State, States, Solution, Ensemble
 
 
-
-# holds solutions to bayesian or rouchon (rouchon not implemented)
-struct Solution
-	t::Vector{Timescale}
-	ρ::Vector{State}
-	r::Vector{Record}
-end
-
+include("types.jl")
 include("utils.jl")
 
 
@@ -253,7 +227,7 @@ function trajectory(m::Function, h::Function, l::Function, ts, ρ; fn::Function=
 	# initialize
 	ρ0 = ρ
 	fnρs = [fn(ρ0)]
-	readouts = [r0]
+	readouts = Readouts([r0])
 
 
 	for t in ts[2:end]
@@ -268,7 +242,7 @@ function trajectory(m::Function, h::Function, l::Function, ts, ρ; fn::Function=
 
 	records = trans(readouts)
 
-	return Solution(ts, fnρs, records)
+	return Solution(collect(ts), fnρs, records)
 end
 function trajectory(m::Function, h::Function, l::Function, ts, ρ, records::Vector{Record}; fn::Function=ρ->ρ, dt=1e-4)
 
@@ -286,7 +260,7 @@ function trajectory(m::Function, h::Function, l::Function, ts, ρ, records::Vect
 		 push!(fnρs, fn(ρ))
 	end
 
-	return Solution(ts, fnρs, records)
+	return Solution(collect(ts), fnρs, records)
 end
 # currently, feeding in a pre-determined measurement record is not supported for feedback,
 # since it's not clear when this would be appropriate.
@@ -354,7 +328,7 @@ function ftrajectory(m::Function, h::Function, l::Function, ts, ρ; fn::Function
 
 	records = trans(readouts)
 
-	return Solution(ts, fnρs, records)
+	return Solution(collect(ts), fnρs, records)
 end
 function ftrajectory((ms, mf), (hs, hf), l::Function, ts, ρ0; fn::Function=ρ->ρ, dt=1e-4, r0=[0.0], td=0.0, readout_integration_bins=1)
 
@@ -781,7 +755,7 @@ function rouchon((t0, tf), ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
 	end
 
 
-    return Solution(ts, ρs, r)
+    return Solution(collect(ts), ρs, r)
 end # rouchon
 
 
