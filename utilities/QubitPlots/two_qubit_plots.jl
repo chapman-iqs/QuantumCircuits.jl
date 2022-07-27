@@ -1,3 +1,4 @@
+
 # for plotting reduced qubit evolution in a two-qubit system
 function single_qubit_plots(sol::Solution)
 	colors = colors1q
@@ -36,24 +37,43 @@ function single_qubit_plots(sol::Solution)
 	plot(p1, p2, layout = l, link=:y, size=(600,300), legendfontsize=8, titlefontsize=12, legend=:outerright)
 end
 
-# for plotting bell state trajectories
-function bell_plot(sol::Solution)
+
+@userplot BellPlot
+@recipe function f(bp::BellPlot)
+	sol = bp.args[1]
 
 	basis = bell_basis
-	colors = colors2q_bell
-	labels = bell_basis_labels
-	title = "Bell states"
-
 	exps = map(op -> expectations(sol, dm(op)), basis)
 
-	pl = plot(size=(600,300), legendfontsize=12, titlefontsize=12, legend=:outerright, title=title)
+	# Plot time series --------------------------------------------------------
 
-	for l in 1:length(basis)
-		label = labels[l]
-		color = colors[l]
-		exp = exps[l]
-		plot!(sol.t, exps[l], color=color, label=label, legend=:outerright, xlabel="t (μs)", ylims=[0,1])
+	title --> "Bell states"
+	legend --> :outerright
+	label --> hcat(bell_basis_labels...)
+	xlabel --> "t (μs)"
+	ylabel --> "Bell state populations"
+
+	palette := :rainbow
+	linealpha --> 1
+
+	legendfontsize --> 10
+	titlefontsize --> 12
+	xtickfontsize --> 10
+	ytickfontsize --> 10
+	xguidefontsize --> 10
+	yguidefontsize --> 10
+	size --> (600,300)
+	linewidth --> 1.5
+	margin --> 5mm
+
+	ylims --> [0, 1]
+
+
+	for exp in exps
+
+		@series begin
+			sol.t, exp
+		end
+
 	end
-
-	pl
 end

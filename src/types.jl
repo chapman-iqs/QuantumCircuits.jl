@@ -29,12 +29,6 @@ const ρρ = identityoperator(SpinBasis(1//2)) # State
 
 const BasisName = Union{Symbol, Vector{Symbol}}
 
-# mutable struct Solution
-# 	t
-# 	ρ
-# 	r
-# end
-
 mutable struct Solution
 	t::Times
 	ρ

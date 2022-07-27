@@ -1,3 +1,7 @@
+"""
+Still needs to be updated to module format, as in SingleQubitOperators.jl and TwoQubitOperators.jl.
+"""
+
 "Single-qubit operators ------------------------------------------------"
 
 # Basis

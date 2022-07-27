@@ -1,130 +1,16 @@
-@userplot BlochSphere
-@userplot BlochTimeSeries
-@userplot BlochProjections
+"-- Color palettes ----------------------------------------------------------------------------------------------------"
+# single qubit
+colors1q = palette(:tab10)
 
-@recipe function f(bs::BlochSphere; mesh=30, ax=false, viewϕ=0, vec=nothing, blochmark=false, blochmarkcolor="white")
-
-	args = bs.args
-	timed = length(args) == 4
-
-	xss, yss, zss = timed ? args[2:4] : args
-	i = timed ? bs.args[1] : length(xss)
-
-	xs = xss[1:i] .* cos(viewϕ) .- yss[1:i] .* sin(viewϕ)
-	ys = xss[1:i] .* sin(viewϕ) .+ yss[1:i] .* cos(viewϕ)
-	zs = zss[1:i]
+"Single trajectories ---------------------------------------------------------------------------------------------------------"
 
 
-	# Plot trajectory ----------------------------------------------------------
+mutable struct BlochTimeSeries end
+const blochtimeseries = BlochTimeSeries()
 
-	# marker := nothing
-	linecolor --> "black" # makes blue only if color is not specified
-	linewidth --> :2
-
-	@series begin
-		xs, ys, zs
-	end
-
-
-	# Wire frame coordinates ---------------------------------------------------
-
-	x(θ, ϕ) = sin(θ) * cos(ϕ + viewϕ)
-	y(θ, ϕ) = sin(θ) * sin(ϕ + viewϕ)
-	z(θ, ϕ) = cos(θ)
-
-	θs = range(0, 2π, length=mesh)
-	ϕs = range(0, π, length=mesh) .+ viewϕ
-
-
-	# Plot wireframe -----------------------------------------------------------
-
-
-	legend := false
-	linecolor := "steelblue"
-	linewidth := 0.5
-	linealpha := 1
-	seriestype := path3d
-	aspect_ratio := 1.0
-	size --> (400,400)
-
-	# Longitudes
-	for ϕ in ϕs
-		@series begin
-			[x(θ, ϕ) for θ in θs], [y(θ, ϕ) for θ in θs], [z(θ, ϕ) for θ in θs]
-		end
-	end
-
-	# Latitudes
-	for θ in θs
-		@series begin
-			[x(θ, ϕ) for ϕ in ϕs], [y(θ, ϕ) for ϕ in ϕs], [z(θ, ϕ) for ϕ in ϕs]
-		end
-	end
-
-
-	# Plot reference axes ------------------------------------------------------
-	linewidth := 3
-	colors = [palette(:tab10)[i] for i in 1:3]
-
-	if ax
-
-		linecolor := colors[1]
-		@series begin
-			[0, cos(viewϕ)], [0, sin(viewϕ)], [0, 0]
-		end
-
-		linecolor := colors[2]
-		@series begin
-			[0, -sin(viewϕ)], [0, cos(viewϕ)], [0, 0]
-		end
-
-		linecolor := colors[3]
-		@series begin
-			[0, 0], [0, 0], [0, 1]
-		end
-	end
-
-
-	# Plot optional Bloch vector input by user --------------------------------
-
-	if vec != nothing
-
-		(xvv, yvv, zvv) = vec
-
-		xv = xvv * cos(viewϕ) - yvv * sin(viewϕ)
-		yv = xvv .* sin(viewϕ) .+ yvv * cos(viewϕ)
-		zv = zvv
-
-		linewidth := 2
-		linecolor := "red"
-
-		@series begin
-			[0, xv], [0, yv], [0, zv]
-		end
-
-		marker := (:circle, 5)
-		markercolor := "red"
-		@series begin
-			[xv], [yv], [zv]
-		end
-
-	end
-
-	# Plot optional marker ------------------------------------------------
-
-	if blochmark
-
-		marker := (:circle, 3.5)
-		markercolor := blochmarkcolor
-		@series begin
-			[last(xs)], [last(ys)], [last(zs)]
-		end
-
-	end
-end # blochsphere
-
-@recipe function f(bts::BlochTimeSeries; vec=nothing, tf=nothing)
-	ts, xs, ys, zs = bts.args
+@recipe f(bts::BlochTimeSeries, sol::Solution) = (bts, sol.t, sol.exps...)
+@recipe f(bts::BlochTimeSeries, sol::Solution, ::Records) = (bts, sol.t, sol.exps..., sol.r)
+@recipe function f(::BlochTimeSeries, ts, xs, ys, zs; vec=nothing, tf=nothing)
 	ps = 0.5 .* (1 .+ xs.^2 + ys.^2 + zs.^2) # purity
 
 	# (xv, yv, zv) = vec
@@ -136,12 +22,11 @@ end # blochsphere
 
 	# Plot time series --------------------------------------------------------
 
-	legend --> :outerright
+	legend --> :topright
 	label --> [L"$x$" L"$y$" L"$z$" L"$Tr ( \rho^2 )$"]
 	xlabel --> "t (μs)"
 	ylabel --> "bloch coordinates"
 
-	palette := :tab10
 	linealpha --> 1
 
 	legendfontsize --> 10
@@ -158,9 +43,10 @@ end # blochsphere
 	ylims --> [-1, 1]
 
 
-	for bs in (xs, ys, zs, ps)
+	for (i, bs) in enumerate([xs, ys, zs, ps])
 
 		@series begin
+			color := palette(:tab10)[i]
 			ts, bs
 		end
 
@@ -177,19 +63,95 @@ end # blochsphere
 			@series begin
 				[first(ts), tf], [sv, sv]
 			end
+		end
+	end
+end
+@recipe function f(::BlochTimeSeries, ts, xs, ys, zs, records::Records; vec=nothing, tf=nothing, ylabels = ["bloch coordinates", "record 1", "record 2"])
+	ps = 0.5 .* (1 .+ xs.^2 + ys.^2 + zs.^2) # purity
 
+	if vec != nothing
+		(xv, yv, zv) = vec
+		ρv = 0.5 * (1 + xv^2 + yv^2 + zv^2)
+	end
+
+	# Plot time series --------------------------------------------------------
+
+	layout := @layout [b{0.5h}; grid(length(records),1)]
+	link := :x
+
+	legend --> :topright
+	label --> [L"$x$" L"$y$" L"$z$" L"$Tr ( \rho^2 )$"]
+	xlabel --> "t (μs)"
+	# ylabel --> "bloch coordinates"
+
+	palette := :tab10
+	linealpha --> 1
+
+	legendfontsize --> 10
+	titlefontsize --> 12
+	xtickfontsize --> 9
+	ytickfontsize --> 9
+	xguidefontsize --> 10
+	yguidefontsize --> 10
+	size --> (600,500)
+	linewidth --> 1.5
+
+	tf = (tf == nothing) ? last(ts) : tf
+	xlims --> [first(ts), tf]
+
+
+	for bs in (xs, ys, zs, ps)
+
+		@series begin
+			subplot := 1
+			ylims --> [-1, 1]
+			xlabel := ""
+			ylabel := ylabels[1]
+			ts, bs
 		end
 
 	end
+
+	if vec != nothing
+
+		for (i, sv) in enumerate((xv, yv, zv, ρv))
+
+			linecolor := i
+
+			@series begin
+				subplot := 1
+				linestyle := :dot
+				label := :none
+				xlabel := ""
+				[first(ts), tf], [sv, sv]
+			end
+		end
+	end
+
+	for (i, rs) in enumerate(records)
+		@series begin
+			subplot := 1 + i
+			color := palette(:rainbow)[i]
+			linewidth := 0.6
+			label := :none
+			ylims := [minimum(rs), maximum(rs)]
+			if i < length(records)
+				xlabel := ""
+			end
+			ylabel := ylabels[i + 1]
+			ts, rs
+		end
+	end
 end
 
+@userplot BlochProjections
 @recipe function f(bp::BlochProjections; plottitle="Bloch trajectory cross-sections", vec=nothing, blochmark=false, blochmarkcolor="white")
 	bloch = bp.args # has the form bloch = (xs, ys, zs)
 
 	# Define colors and labels -------------------------------------------------
 
-	colors = [palette(:tab10)[i] for i in 1:3]
-	labels = ["x", "y", "z"]
+	colors = palette(:tab10)[1:3]
+	labels = qlabels
 	palette := :tab10
 	linealpha --> 1
 	linewidth --> 0.85
