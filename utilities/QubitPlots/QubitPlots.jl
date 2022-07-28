@@ -14,22 +14,21 @@ export bell_plot
 "---- Dependencies ----"
 
 using Suppressor: @suppress_err
-@suppress_err using Plots
+using Reexport
+@suppress_err @reexport using Plots
 import Makie, GLMakie, CairoMakie
 
 using LaTeXStrings
 using DataFrames
 using Statistics
 using Measures
-using QuantumCircuits
+using .QuantumCircuits
 
 include("../SingleQubitOperators.jl")
 include("../TwoQubitOperators.jl")
-include("../NotebookHelpers/NotebookHelpers.jl")
 
 using .SingleQubitOperators
 using .TwoQubitOperators
-using .NotebookHelpers
 
 
 "---- Definitions of functions and constants ----"
