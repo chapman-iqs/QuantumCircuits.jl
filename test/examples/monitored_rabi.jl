@@ -1,6 +1,7 @@
 using QuantumCircuits
 using QuantumCircuits.SingleQubitOperators
-using QuantumCircuits.QubitPlots
+using QubitPlots
+# using QuantumCircuits.QubitPlots
 
 Ω = 2π * 1.0
 Γ = 2.0

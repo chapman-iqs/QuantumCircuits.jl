@@ -1,9 +1,9 @@
 using QuantumCircuits
 using QuantumCircuits.SingleQubitOperators
-using QuantumCircuits.QubitPlots
+using QubitPlots
 
 # define parameters of the simulation
-Ω = 2π * 0.0
+Ω = 2π * 0.5
 Γ = 0.2
 η = 1.0
 

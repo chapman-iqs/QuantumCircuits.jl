@@ -75,6 +75,30 @@ function subselect(a=[]; n=2)
 end
 
 
+"""
+	Converts hamiltonian function to have correct argument order and type.
+"""
+function convertham(H::Function)
+
+	if applicable(H, tt) # non-feedback case
+		return H
+	else # feedback case
+		return (t::Timescale, ρ::State, r::Record) -> let
+			arglist = [(t, ρ), (ρ, t), (t, r), (r, t), (t, ρ, r), (t, r, ρ), (r, t, ρ), (r, ρ, t), (ρ, r, t)]
+			index = findfirst(map(args -> applicable(H, args...), arglist))
+			args = 	try
+						arglist[index]
+					catch e
+						error("Improper argument types input to Hamiltonian.")
+					end
+
+		 	H(args...)
+		end
+	end
+end # convertham
+
+
+
 
 """
 trans(mat)

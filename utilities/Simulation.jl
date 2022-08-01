@@ -23,7 +23,7 @@ Wrapper for simulation data and parameters to create consistency in importing an
 @with_kw mutable struct Simulation
     pars
     data::Dict{DataFrame} = Dict()
-    path::String = ""
+    path::String = "/Users/sachagreenfield/Desktop/Physics/Research/data/unnamed_data"
     description::String = ""
 end
 Simulation(pars) = Simulation(pars = pars)
@@ -33,13 +33,15 @@ function exportpath(path)
 	replace(ep, ":" => "-")
 end
 
-function writedata(sim::Simulation)
+function write(sim::Simulation)
 
-	ep = exportpath(path)
+	ep = exportpath(sim.path)
 	mkpath(ep)
 	println(string("Writing to path ," ep))
 
-	writepars(pars)
+	writepars(sim.pars)
+	writedescription(sim.description)
+	writedata(sim.data)
 
 end
 
@@ -51,10 +53,19 @@ function writepars(pars::T) where {T}
 		d[string(n)] = getfield(pars, n)
 	end
 
+	CSV.write(string(ep, "parameters.csv"), DataFrame(d))
+end
 
-	names = fieldnames(T)
-	values = map(n -> getfield(pars, n), names)
+function writedescription(des::String)
+	CSV.write(string(ep, "description.txt"), des)
+end
 
+function writedata(data::Dict{DataFrame})
+	for (k, v) in data
+		filename = string(ep, k, ".csv")
+		CSV.write(string(ep, filename), v)
+	end
+end
 
 
 

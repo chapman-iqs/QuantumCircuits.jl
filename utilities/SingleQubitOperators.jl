@@ -7,7 +7,7 @@ export q, Iq, σx, σy, σz, σp, σm, g, e, qbasis, qlabels, qcolors
 
 " ---- Dependencies ---- "
 
-using QuantumCircuits
+using ..QuantumCircuits
 import Plots.palette
 
 

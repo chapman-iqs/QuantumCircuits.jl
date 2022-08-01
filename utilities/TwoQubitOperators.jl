@@ -10,12 +10,11 @@ export number_basis, number_basis_strings, number_basis_labels
 
 "---- Dependencies ----"
 
-using QuantumCircuits
+using ..QuantumCircuits
 using LaTeXStrings
 
-include("SingleQubitOperators.jl")
-
-using .SingleQubitOperators
+# include("SingleQubitOperators.jl")
+using ..SingleQubitOperators
 
 
 "---- Definitions of constants ----"

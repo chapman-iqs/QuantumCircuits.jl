@@ -20,8 +20,8 @@ export bayesian, rouchon, ensemble
 include("../utilities/SingleQubitOperators.jl")
 include("../utilities/TwoQubitOperators.jl")
 # include("../utilities/QubitPlots/QubitPlots.jl")
-@reexport import .SingleQubitOperators
-@reexport import .TwoQubitOperators
+# @reexport import .SingleQubitOperators
+# @reexport import .TwoQubitOperators
 # @reexport import .QubitPlots
 
 

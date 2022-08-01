@@ -10,7 +10,8 @@ You can also import the submodule QubitPlots if you plan to plot anything.
 
 using QuantumCircuits
 using QuantumCircuits.SingleQubitOperators
-using QuantumCircuits.QubitPlots
+using QubitPlots
+# using QuantumCircuits.QubitPlots
 
 using Parameters
 using ProgressMeter

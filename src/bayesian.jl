@@ -312,7 +312,7 @@ function ftrajectory((ms, mf), (hs, hf), l::Function, ts, ρ0; fn::Function=ρ->
 
 	records = trans(readouts)
 
-	return (Solution(ts, fnρs, records), Solution(ts, fnρf, Record[]))
+	return (Solution(collect(ts), fnρs, records), Solution(collect(ts), fnρf, records))
 end
 
 
