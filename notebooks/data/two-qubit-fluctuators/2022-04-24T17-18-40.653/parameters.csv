@@ -1,9 +1,0 @@
-first,second
-comment,"outputting purity of avg quantum state, no dd"
-N,1000
-φd,1.5707963267948966
-tf,10.0
-dt,0.001
-nfluctuators,10
-Ω,1.2566370614359172
-ΩR,0.0
