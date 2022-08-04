@@ -25,7 +25,7 @@ module Tests
 using ..QuantumCircuits
 using Test
 
-include("unit.jl")
-include("analytical.jl")
+# include("unit.jl")
+# include("analytical.jl")
 
 end
