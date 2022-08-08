@@ -29,19 +29,13 @@ const ρρ = identityoperator(SpinBasis(1//2)) # State
 
 const BasisName = Union{Symbol, Vector{Symbol}}
 
-Base.@kwdef mutable struct Solution
-
+mutable struct Solution
 	t::Times
 	ρ
 	r::Records
-
-	exps = missing
-	basis = missing
-	basisname::BasisName = missing
-
-	fs::Union{Float64, Missing} = missing
-	functions::Union{Function, Missing} = missing
-	functionnames::Union{Symbol, Vector{Symbol}, Missing} = missing
+	exps
+	basis
+	basisname::BasisName
 end
 Solution(t::Times, ρ) = Solution(t, ρ, Records(), [], [], Symbol())
 Solution(t::Times, ρ, r::Records) = Solution(t, ρ, r, [], [], Symbol())
