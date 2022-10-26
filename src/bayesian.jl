@@ -100,7 +100,42 @@ function bayesian((t0, tf), ρ, (Hs0, Hf0), J, C; fn=ρ->ρ, dt=1e-4, td::Timesc
 
 	ftrajectory((ms, mf), (hs, hf), l, ts, ρ; fn=fn, r0=r0, dt=dt, td=td, readout_integration_bins=readout_integration_bins)
 end # bayesian
+function bayesian((t0, tf), ρ, Hpair::Tuple, Jpair::Tuple, C; fn=ρ->ρ, dt=1e-4, td::Timescale = 0.0, readout_integration_bins=1)
+	Hs0, Hf0 = Hpair
+	Js, Jf = Jpair
 
+	if !(typeof(Hs0) <: Function) || !(typeof(Hf0) <: Function) || applicable(Hs0, tt) || applicable(Hf0, tt)
+		str = string("Non-feedback system-filter Hamiltonians are not yet supported. Please input Hamiltonians ",
+						"as a tuple of functions (Hs(args1...), Hf(args2...)), where args1, args2 = (t::Timescale, ρ::State),",
+						"(t::Timescale, r::Record), or (t::Timescale, ρ::State, r::Record), and Hs and Hf ",
+						"are the system and the filter Hamiltonians, respectively. This feature should ",
+						"be added in the future...."
+						)
+		error(str)
+
+	end
+
+	Hs = convertham(Hs0)
+	Hf = convertham(Hf0)
+
+	ts = range(t0, tf, step=dt)
+	r0::Readout = [0.0 for i in 1:length(C)] # initial, empty Readout object
+
+	# define superoperator functions for state update
+	ms = meas(dt, C; sample=true) 	# "system" measurement superoperator (generates a readout based on system state)
+	mf = meas(dt, C; sample=false) 	# "filter" measurement superoperator (ALSO generates a readout based on system state
+									# -- same superoperator, but needs to be able to take readout as argument)
+	hs = ham(dt, Hs) # unitary superoperator for experimentally "known" Hamiltonian (applied to both "system" and "filter")
+	hf = ham(dt, Hf) # unitary superoperator for experimentally "unknown" Hamiltonian (applied to only "system")
+	ls = lind(dt, Js) # decay superoperator for "system"
+	lf = lind(dt, Jf) # decay superoperator for "filter"
+
+	if length(Js) > 0 || length(Jf) > 0 && typeof(ρ) <: Ket
+		ρ = dm(ρ)
+	end
+
+	ftrajectory((ms, mf), (hs, hf), (ls, lf), ts, ρ; fn=fn, r0=r0, dt=dt, td=td, readout_integration_bins=readout_integration_bins)
+end # bayesian
 
 
 """
@@ -314,6 +349,84 @@ function ftrajectory((ms, mf), (hs, hf), l::Function, ts, ρ0; fn::Function=ρ->
 
 	return (Solution(collect(ts), fnρs, records), Solution(collect(ts), fnρf, records))
 end
+function ftrajectory((ms, mf), (hs, hf), (ls, lf), ts, ρ0; fn::Function=ρ->ρ, dt=1e-4, r0=[0.0], td=0.0, readout_integration_bins=1)
+
+	# initialize system
+	ρs = ρ0
+	ρss = [ρs]
+	fnρs = [fn(ρs)]
+
+	# initialize filter
+	ρf = ρ0
+	ρfs = [ρf]
+	fnρf = [fn(ρ0)]
+
+	# shared readout for system and filter
+	readouts = [r0]
+
+	# if there is no time delay, delay = 1, and we use the record / state from most recent update in the
+	# feedback Hamiltonian
+	delay = Int64(round(td / dt)) + 1
+
+
+	# feed back on filter state; obtain record using system state
+	# before feedback delay buffer is filled, we must feed back on "fake" record or state
+	for t in ts[2:delay]
+
+		### system evolution
+		ρs1 = hs(t, ρs, ρ0, r0)# unitary
+		ρs2 = ls(t, ρs1) # lindblad
+		ρs, ro = ms(t, ρs2) # measurement
+
+		push!(ρss, ρs)
+		push!(readouts, ro)
+		push!(fnρs, fn(ρs))
+
+		### filter evolution
+		ρf1 = hf(t, ρf, ρ0, r0) # unitary
+		ρf2 = lf(t, ρf1) # lindblad
+		ρf = mf(t, ρf2, ro) # measurement (based on filtered state expectation values, but with system readout)
+
+		push!(ρfs, ρf)
+		push!(fnρf, fn(ρf))
+
+
+
+	end
+
+	# after feedback delay buffer is filled, we can feed back on acquired readout / filtered state
+	for i in (delay + 1):length(ts)
+		t = ts[i]
+		j = i - delay
+		ρd = ρfs[j] # state used in feedback is the filtered state from time td ago
+		startsmooth = max(1, j - (readout_integration_bins - 1)) # don't index readouts to smooth from an index less than 1
+		rd = mean(readouts[startsmooth:j]) # mean(trans(readouts[startsmooth:j])) 	# readout for feedback is an average of the readout_integration_bins readouts
+													# before the delayed time index j
+
+		### system evolution
+		ρs1 = hs(t, ρs, ρd, rd) # unitary
+		ρs2 = ls(t, ρs1) # lindblad
+		ρs, ro = ms(t, ρs2) # measurement
+
+		push!(ρss, ρs)
+		push!(readouts, ro)
+		push!(fnρs, fn(ρs))
+
+		### filter evolution
+		ρf1 = hf(t, ρf, ρd, rd) # unitary
+		ρf2 = lf(t, ρf1) # lindblad
+		ρf = mf(t, ρf2, ro) # measurement (based on filtered state expectation values, but with system readout)
+
+		push!(ρfs, ρf)
+		push!(fnρf, fn(ρf))
+
+    end
+
+	records = trans(readouts)
+
+	return (Solution(collect(ts), fnρs, records), Solution(collect(ts), fnρf, records))
+end
+
 
 
 
