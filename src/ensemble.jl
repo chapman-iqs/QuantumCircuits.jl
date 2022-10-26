@@ -18,7 +18,7 @@ N :: Int64 = 10								-- number of trajectories
 
 
 """
-
+# comment
 function ensemble(solve, (t0, tf), ρ, H::Union{Function, QOp}, J, C; dt=1e-4, records=Vector{Record}[], N=10, batch_size=10, ops=[], showprogress=true, kwargs...)
 
 	p = Progress(N, enabled=showprogress)
@@ -48,7 +48,16 @@ function ensemble(solve, (t0, tf), ρ, (Hs, Hf)::Tuple, J, C; dt=1e-4, N=10, bat
 end
 "Alternatively, ensemble can take a vector of Hamiltonians. It will run bayesian once for each Hamiltonian. Does not yet implement
 inputting records."
-function ensemble(solve, (t0, tf), ρ, Hlist::Vector, J, C; dt=1e-4, batch_size=10, ops=[], showprogress=true, kwargs...)
+function ensemble(solve, (t0, tf), ρ, Hlist::Vector, J, C; dt=1e-4, N=10, batch_size=10, ops=[], showprogress=true, kwargs...)
+
+	if length(Hlist) != N
+		warn(string(	"Your number of trajectories is ", N,
+											", but your vector of Hamiltonians has length ", length(Hlist),
+											". Please ensure these lengths match by inputting N as a keyword argument.",
+											" (This is a style convention but helps to avoid errors",
+											" when comparing feedback and non-feedback Hamiltonians.)"
+										  ))
+	end
 
 	p = Progress(length(Hlist), enabled=showprogress)
 	solutions = progress_pmap(Hlist, progress=p; batch_size=batch_size) do H
