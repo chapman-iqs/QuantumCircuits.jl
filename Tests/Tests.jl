@@ -25,7 +25,17 @@ module Tests
 using ..QuantumCircuits
 using Test
 
+export runtests, test_timedelay
+
+include("timedelay.jl")
 # include("unit.jl")
 # include("analytical.jl")
+
+
+function runtests()
+
+    test_timedelay()
+end
+
 
 end
