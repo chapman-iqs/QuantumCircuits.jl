@@ -20,5 +20,7 @@ export bayesian, rouchon, ensemble
 include("../utilities/SingleQubitOperators.jl")
 include("../utilities/TwoQubitOperators.jl")
 
+include("../Tests/Tests.jl")
+
 
 end # module

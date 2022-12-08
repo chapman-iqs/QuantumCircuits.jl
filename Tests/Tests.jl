@@ -23,18 +23,21 @@ Eventually, want to fill this out with tests including
 module Tests
 
 using ..QuantumCircuits
+using ..QuantumCircuits.SingleQubitOperators
 using Test
 
 export runtests, test_timedelay
 
+
 include("timedelay.jl")
+include("lindblad.jl")
 # include("unit.jl")
 # include("analytical.jl")
 
 
 function runtests()
-
-    test_timedelay()
+    test_lindblad()
+    test_timedelay()    
 end
 
 

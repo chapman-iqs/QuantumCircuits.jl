@@ -537,29 +537,35 @@ function lind(dt, J)
 	# preprocess lindblad arguments
 	clist = []
 	flist = []
+	fρlist = []
 
 	for (j, γ) in J
 		if typeof(γ) <: Function
-			push!(flist, (j, γ))
+			if applicable(γ, tt)
+				push!(flist, (j, γ))
+			elseif applicable(γ, tt, ρρ)
+				push!(fρlist, (j, γ))
+			else
+				error("Please enter γ(t::Timescale) or γ(t::Timescale, ρ::State)")
+			end
 		else
 			push!(clist, (j, γ))
 		end
 	end
-	(t, ρ) -> lind(dt; clist=clist, flist=flist)(t, ρ)
+	(t, ρ) -> lind(dt; clist=clist, flist=flist, fρlist=fρlist)(t, ρ)
 end
-function lind(dt; clist=QOp[], flist=Function[])
+function lind(dt; clist=QOp[], flist=Function[], fρlist=Function[])
 	ns = Function[]
 	ds = Function[]
 	# Construct operations for constant operators
 	if isempty(clist)
 		push!(ns, (t, ρ) -> ρ)
 	else
-		Id = identityoperator(first(clist[1]).basis_l)
-		op = DenseOperator(Id - dt * (mapreduce(+, clist) do (j, γ) γ * j' * j end))
-		n::Operator = SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
+		n = nullop(dt, clist...)
 		push!(ns, (t, ρ) -> n * ρ * n)
 		push!(ds, (t, ρ) -> dt * (mapreduce(+, clist) do (j, γ) γ * j * ρ * j' end))
 	end
+
 	# Construct operations for time-dependent operators
 	if isempty(flist)
 		push!(ns, (t, ρ) -> ρ)
@@ -569,13 +575,175 @@ function lind(dt; clist=QOp[], flist=Function[])
 			op = DenseOperator(Id - dt * (mapreduce(+, flist) do (j, γ) γ(t) * j' * j end))
 			return SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
 		end
+		# nf = nullop(dt, flist...)
 		push!(ns, (t, ρ) -> nf(t) * ρ * nf(t))
 		push!(ds, (t, ρ) -> dt * (mapreduce(+, flist) do (j, γ) γ(t) * j * ρ * j' end))
 	end
-	push!(ds, (t, ρ) -> last(ns)(t, first(ns)(t, ρ)))
+
+	# Construct operations for time- and state-dependent operators
+	if isempty(fρlist)
+		push!(ns, (t, ρ) -> ρ)
+	else
+		function nff(t, ρ)
+			Id = identityoperator(first(fρlist)[1].basis_l)
+			op = DenseOperator(Id - dt * (mapreduce(+, fρlist) do (j, γ) γ(t, ρ) * j' * j end))
+			return SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
+		end
+		# nff = nullop(dt, fρlist...)
+		push!(ns, (t, ρ) -> nff(t, ρ) * ρ * nff(t, ρ))
+		push!(ds, (t, ρ) -> dt * (mapreduce(+, fρlist) do (j, γ) γ(t, ρ) * j * ρ * j' end))
+	end
+
+	ntotal = (t, ρ) -> let ρ1 = ρ
+							for n in ns
+								ρ1 = n(t, ρ1)
+							end
+							return ρ1
+						end
+
+	push!(ds, ntotal)
+
+	# push!(ds, (t, ρ) -> last(ns)(t, first(ns)(t, ρ))) # combines into one null map
 	(t, ρ) -> mapreduce(f -> f(t, ρ), +, ds)
 end
 
+
+
+function nullop(dt::Timescale, (j, γ)::Tuple{QOp, Rate}, tuples...) 
+	# concatenate all the tuples together; first is distinguished for dispatch
+	tuples = [(j, γ), tuples...] 
+
+	# get identity operator from left basis element of j
+	Id = identityoperator(j.basis_l)
+
+	# get the operator as √(I - dt * γ1 * j1' * j1 - dt * γ2 * j2' * j2 - ...)
+	# square root is taken on op.data at the end
+	op = DenseOperator(Id - dt * (mapreduce(+, tuples) do (j, γ) γ * j' * j end))
+	return SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
+end
+
+function nullop(dt::Timescale, (j, γ)::Tuple{QOp, Function}, tuples...) 
+	# concatenate all the tuples together; first is distinguished for dispatch
+	tuples = [(j, γ), tuples...] 
+
+	# get identity operator from left basis element of j
+	Id = identityoperator(j.basis_l)
+
+	# get the operator as √(I - dt * γ1 * j1' * j1 - dt * γ2 * j2' * j2 - ...)
+	# square root is taken on op.data at the end 
+	# args can be (t) or (t, ρ)
+	op(args) = DenseOperator(Id - dt * (mapreduce(+, tuples) do (j, γ) γ(args...) * j' * j end))
+	return args -> SparseOperator(op(args).basis_l, op(args).basis_r, sqrt(op(args).data))
+end
+
+# function nullop(dt, J...)
+
+# 	# get identity operator from left basis element of the first j
+# 	(j1, γ1) = J[1]
+# 	Id = identityoperator(j1.basis_l)
+
+# 	# get the operator as √(I - dt * γ1 * j1' * j1 - dt * γ2 * j2' * j2 - ...)
+# 	# square root is taken on op.data at the end
+# 	op = DenseOperator(Id - dt * (mapreduce(+, J) do (j, γ) γ * j' * j end))
+# 	return SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
+# end
+
+
+
+
+# function nullop(dt, J...)
+
+# 	# get identity operator from left basis element of the first j
+# 	(j1, γ1) = J[1]
+# 	Id = identityoperator(j1.basis_l)
+
+# 	# get the operator as √(I - dt * γ1 * j1' * j1 - dt * γ2 * j2' * j2 - ...)
+# 	# square root is taken on op.data at the end
+# 	op = DenseOperator(Id - dt * (mapreduce(+, J) do (j, γ) γ * j' * j end))
+# 	return SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
+# end
+"""
+function lind(dt, J)
+
+	# if J is empty, we just return the identity map
+	if isempty(J)
+		return (t, ρ) -> ρ
+	end
+
+	# otherwise, create a map evaluating the J's at time t
+	Jconst(t, ρ) = 	map(J) do (j, γ)
+						if applicable(γ, tt, ρρ)
+							(j, γ(t, ρ))
+						elseif applicable(γ, tt)
+							(j, γ(t))
+						else
+							(j, γ)
+						end
+
+					end
+
+	# create a time-discrete CP map emulating Lindblad evolution
+	return (t, ρ) -> let
+
+		# extract the J applicable at this time
+		Jt = Jconst(t, ρ)
+
+		# get the corresponding null operator
+		n = nullop(dt, Jt...)
+		nullmap = ρ -> n * ρ * n
+
+		# get the event operators
+		eventmap = ρ -> dt * (mapreduce(+, Jt) do (j, γ) γ * j * ρ * j' end)
+		
+		# return the result of applying the operators 
+		return nullmap(ρ) + eventmap(ρ)
+	end
+end"""
+
+
+# function nullop(dt::Timescale, (j, γ)::Tuple{QOp, Rate}, tuples...)
+# 	# concatenate all the tuples together; first is distinguished for dispatch
+# 	tuples = [(j, γ), tuples...] 
+
+# 	# get identity operator from left basis element of j
+# 	Id = identityoperator(j.basis_l)
+
+# 	# get the operator as √(I - dt * γ1 * j1' * j1 - dt * γ2 * j2' * j2 - ...)
+# 	# square root is taken on op.data at the end
+# 	op = DenseOperator(Id - dt * (mapreduce(+, tuples) do (j, γ) γ * j' * j end))
+# 	return SparseOperator(op.basis_l, op.basis_r, sqrt(op.data))
+
+# end
+
+# function posmap(dt::Timescale, (j, γ)::Tuple{QOp, Rate}, tuples...)
+# 	# concatenate all the tuples together; first is distinguished for dispatch
+# 	tuples = [(j, γ), tuples...] 
+
+# function nullmap(dt::Timescale, (j, γ)::Tuple{QOp, Function}, tuples...) 
+# 	# concatenate all the tuples together; first is distinguished for dispatch
+# 	tuples = [(j, γ), tuples...] 
+
+# 	# get identity operator from left basis element of j
+# 	Id = identityoperator(j.basis_l)
+
+# 	# get the operator as √(I - dt * γ1 * j1' * j1 - dt * γ2 * j2' * j2 - ...)
+# 	# square root is taken on op.data at the end
+# 	op(t) = DenseOperator(Id - dt * (mapreduce(+, tuples) do (j, γ) γ(t) * j' * j end))
+# 	return t -> SparseOperator(op.basis_l, op.basis_r, sqrt(op(t).data))
+# end
+
+# function nullmap(dt::Timescale, (j, γ)::Tuple{QOp, Function}, tuples...) 
+# 	# concatenate all the tuples together; first is distinguished for dispatch
+# 	tuples = [(j, γ), tuples...] 
+
+# 	# get identity operator from left basis element of j
+# 	Id = identityoperator(j.basis_l)
+
+# 	# get the operator as √(I - dt * γ1 * j1' * j1 - dt * γ2 * j2' * j2 - ...)
+# 	# square root is taken on op.data at the end
+# 	op(t) = DenseOperator(Id - dt * (mapreduce(+, tuples) do (j, γ) γ(t) * j' * j end))
+# 	return t -> SparseOperator(op.basis_l, op.basis_r, sqrt(op(t).data))
+# end
 
 
 

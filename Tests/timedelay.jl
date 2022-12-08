@@ -1,6 +1,4 @@
-using .QuantumCircuits.SingleQubitOperators
-
-function timedelay(td)
+function timedelay(td; showplot=false)
 
     Ωr = 2π * 0.15
     H1(t::Timescale, ρ::State) = Ωr * σx * (1 - fidelity(ρ, normalize(g + e)))
@@ -11,7 +9,9 @@ function timedelay(td)
 
     sol = bayesian((t0, tf), ψ0, H1, [], []; dt = dt, td = td)
     sol = Solution(sol, qbasis)
-    plot(blochtimeseries, sol.t, sol.exps...)
+    if showplot
+        plot(blochtimeseries, sol.t, sol.exps...)
+    end
 
     # solve by hand and test
     ψs = [ψ0]
@@ -32,9 +32,9 @@ end
 
 function test_timedelay()
 
-    @testset begin
+    @testset "time delay" begin
         for td in 0:0.2:2.0
-            @test test_timedelay(td)
+            @test timedelay(td)
         end
     end
 end

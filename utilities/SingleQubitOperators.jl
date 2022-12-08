@@ -2,13 +2,12 @@ module SingleQubitOperators
 
 " ---- Export symbols ---- "
 
-export q, Iq, σx, σy, σz, σp, σm, g, e, qbasis, qlabels, qcolors
+export q, Iq, σx, σy, σz, σp, σm, g, e, qbasis, qlabels
 
 
 " ---- Dependencies ---- "
 
 using ..QuantumCircuits
-import Plots.palette
 
 
 " ---- Definitions of constants ---- "
@@ -30,7 +29,7 @@ const e = spinup(q)
 # operator basis
 const qbasis = [σx, σy, σz]
 const qlabels = ["x", "y", "z"]
-const qcolors =  palette(:tab10)[1:3]
+# const qcolors =  palette(:tab10)[1:3]
 
 
 end # module SingleQubitOperators
