@@ -26,18 +26,21 @@ using ..QuantumCircuits
 using ..QuantumCircuits.SingleQubitOperators
 using Test
 
-export runtests, test_timedelay
+export runtests, test_timedelay, test_lindblad, test_superops, test_sbayesian, test_ssbayesian
 
 
 include("timedelay.jl")
 include("lindblad.jl")
+include("superoperators.jl")
+include("run.jl")
 # include("unit.jl")
 # include("analytical.jl")
 
 
-function runtests()
-    test_lindblad()
-    test_timedelay()    
+function runtests(; functions = [test_superops, test_lindblad, test_timedelay, test_sbayesian], kwargs...)
+    for f in functions
+        f(; kwargs...)
+    end
 end
 
 

@@ -17,6 +17,9 @@ include("rouchon.jl")
 include("ensemble.jl")
 export bayesian, rouchon, ensemble
 
+include("superevolution.jl")
+export sbayesian, ssbayesian, forwardtrajectory, forwardbayesian
+
 include("../utilities/SingleQubitOperators.jl")
 include("../utilities/TwoQubitOperators.jl")
 
