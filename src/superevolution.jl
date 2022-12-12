@@ -308,6 +308,7 @@ function sslind(dt, H, J)
  	# preprocess lindblad arguments
 	clist = []
 	flist = []
+    fρlist = []
 
 	for (j, γ) in J
 		if typeof(γ) <: Function
@@ -382,7 +383,7 @@ function forwardtrajectory(ts, (ρs0, ρf0), Meas::Function, USys::Function, LFi
 
     # delay and buffer maps
     delay = Int64(round(td / dt)) + 1
-    buffermaps = [spre(identityoperator(ρs0.basis)) for i in 1:delay]
+    buffermaps = [spre(identityoperator(ρs0.basis_l)) for i in 1:(delay-1)]
 
     # initialize readout
 	readouts = Readouts([r0])
@@ -399,8 +400,9 @@ function forwardtrajectory(ts, (ρs0, ρf0), Meas::Function, USys::Function, LFi
         L = LFil(t, ρe)        # get FILTER update map based on forward-estimated state
 
         # update the buffermaps to remember the Hamiltonian operation that was chosen
+        pushfirst!(buffermaps, sparse(L))
         pop!(buffermaps)
-        pushfirst!(buffermaps, L)
+        
 
         # state updates
         ρs = normalize(U * M * ρs)    # SYSTEM ρ based on the measurement and Hamiltonian maps
@@ -415,7 +417,7 @@ function forwardtrajectory(ts, (ρs0, ρf0), Meas::Function, USys::Function, LFi
 		t = ts[i]
 
         # get the forward-estimated state as a function of the filter state td ago and the intervening maps
-        ρe = foldl(*, buffermaps; init=ρf_list[i - delay])
+        ρe = foldr(*, buffermaps; init=ρf_list[i - delay])
 
         # get the maps
         M, ro = Meas(t, ρs) # measure the SYSTEM to get the bayesian update map
@@ -423,8 +425,9 @@ function forwardtrajectory(ts, (ρs0, ρf0), Meas::Function, USys::Function, LFi
         L = LFil(t, ρe)        # get FILTER update map based on forward-estimated state
 
         # update the buffermaps to remember the Hamiltonian operation that was chosen
-        popfirst!(buffermaps)
         push!(buffermaps, sparse(L))
+        popfirst!(buffermaps)
+        
 
         # state updates
         ρs = normalize(U * M * ρs)    # SYSTEM ρ based on the measurement and Hamiltonian maps
