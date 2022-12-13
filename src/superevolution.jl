@@ -272,54 +272,68 @@ Uses direct matrix exponentiation of the total superoperator for
 the increment.
 ### Returns:
     - (t::Timescale, ρvec) -> u * ρvec : Superoperator for total evolution over dt
-"""
+    """
 sslind(dt::Timescale, H) = sham(dt, H)
-function sslind(dt::Timescale, H::QOp; clist=QOp[], flist=Function[])
+function sslind(dt::Timescale, H::QOp; clist=QOp[], flist=Function[], fρlist=Function[])
     h = -im*scomm(H)
     init = DenseSuperOperator(h.basis_l, h.basis_r)
-    if isempty(flist)
-        let l = DenseSuperOperator(h.basis_l, h.basis_r, (h + mapreduce(sdiss, +, clist; init=init)).data),
-            u = exp(dt*l);
-            return u
+    if isempty(flist) && isempty(fρlist)
+        let l = DenseSuperOperator(h.basis_l, h.basis_r, (h + mapreduce(sdiss, +, clist; init=init)).data)
+            return exp(dt*l);
+        end
+    elseif isempty(fρlist)
+        let l(t::Timescale) = DenseSuperOperator(h.basis_l, h.basis_r, (h + mapreduce(sdiss, +, clist; init=init) +
+                                mapreduce(f -> sdiss(f(t)), +, flist; init=init)).data)
+            return t::Timescale -> exp(dt*l(t))
         end
     else
-        let l(t::Timescale) = DenseSuperOperator(h.basis_l, h.basis_r, (h + mapreduce(sdiss, +, clist; init=init).data) +
-                                mapreduce(f -> sdiss(f(t)), +, flist; init=init)),
-            u(t::Timescale) = exp(dt*l(t))
-            return t::Timescale -> u(t)
+        let l(t::Timescale, ρ::State) = DenseSuperOperator(h.basis_l, h.basis_r, (h + mapreduce(sdiss, +, clist; init=init) +
+                                mapreduce(f -> sdiss(f(t)), +, flist; init=init) + mapreduce(f -> sdiss(f(t, ρ)), +, fρlist; init=init)).data)
+            return (t::Timescale, ρ::State) -> exp(dt*l(t, ρ))
         end
     end
 end
-function sslind(dt::Timescale, H::Function; clist=QOp[], flist=Function[])
-    if applicable(H, tt, ρρ) && isempty(flist)
-        (t::Timescale, ρ::State) -> sslind(dt, H(t, ρ), clist=clist, flist=flist)
-    elseif applicable(H, tt, ρρ)
-        (t::Timescale, ρ::State) -> sslind(dt, H(t, ρ), clist=clist, flist=flist)(t)
-    elseif applicable(H, tt) && isempty(flist)
-        t::Timescale -> sslind(dt, H(t), clist=clist, flist=flist)
+function sslind(dt::Timescale, H::Function; clist=QOp[], flist=Function[], fρlist=Function[])
+    if applicable(H, tt, ρρ)
+        if !isempty(fρlist)
+            (t::Timescale, ρh::State, ρl::State) -> sslind(dt, H(t, ρh), clist=clist, flist=flist, fρlist=fρlist)(t, ρl)
+        elseif !isempty(flist)
+            (t::Timescale, ρh::State, ρl::State) -> sslind(dt, H(t, ρh), clist=clist, flist=flist, fρlist=fρlist)(t)
+        else
+            (t::Timescale, ρh::State, ρl::State) -> sslind(dt, H(t, ρh), clist=clist, flist=flist, fρlist=fρlist)
+        end
     elseif applicable(H, tt)
-        t::Timescale -> sslind(dt, H(t), clist=clist, flist=flist)(t)
+        if !isempty(fρlist)
+            (t::Timescale, ρh::State, ρl::State) -> sslind(dt, H(t), clist=clist, flist=flist, fρlist=fρlist)(t, ρl)
+        elseif !isempty(flist)
+            (t::Timescale, ρh::State, ρl::State) -> sslind(dt, H(t), clist=clist, flist=flist, fρlist=fρlist)(t)
+        else
+            (t::Timescale, ρh::State, ρl::State) -> sslind(dt, H(t), clist=clist, flist=flist, fρlist=fρlist)
+        end        
     else
         error("Invalid argument types to Hamiltonian.")
     end
 end
 function sslind(dt, H, J)
 
- 	# preprocess lindblad arguments
-	clist = []
-	flist = []
+        # preprocess lindblad arguments
+    clist = []
+    flist = []
     fρlist = []
 
-	for (j, γ) in J
-		if typeof(γ) <: Function
+    for (j, γ) in J
+        if applicable(γ, tt, ρρ)
+            push!(fρlist, (t, ρ) -> √γ(t, ρ) * j)
+        elseif applicable(γ, tt)
             push!(flist, t -> √γ(t) * j)
-		else
-			push!(clist, √γ * j)
-		end
-	end
-	return sslind(dt, H; clist=clist, flist=flist)
+        elseif typeof(γ) <: Rate
+            push!(clist, √γ * j)
+        else
+            error("Improper argument types to γ.")
+        end
+    end
+    return sslind(dt, H; clist=clist, flist=flist, fρlist=fρlist)
 end
-
 
 """
     strajectory(Meas::Function, H::SuperOperator, L::SuperOperator, ts, ρ; dt=1e-3)
@@ -397,7 +411,7 @@ function forwardtrajectory(ts, (ρs0, ρf0), Meas::Function, USys::Function, LFi
         # get the maps
         M, ro = Meas(t, ρs) # measure the SYSTEM to get the bayesian update map
         U = USys(t, ρe)        # get SYSTEM update map based on forward-estimated state
-        L = LFil(t, ρe)        # get FILTER update map based on forward-estimated state
+        L = LFil(t, ρe, ρf)        # get FILTER update map based on forward-estimated state
 
         # update the buffermaps to remember the Hamiltonian operation that was chosen
         pushfirst!(buffermaps, sparse(L))
@@ -422,7 +436,7 @@ function forwardtrajectory(ts, (ρs0, ρf0), Meas::Function, USys::Function, LFi
         # get the maps
         M, ro = Meas(t, ρs) # measure the SYSTEM to get the bayesian update map
         U = USys(t, ρe)        # get SYSTEM update map based on forward-estimated state
-        L = LFil(t, ρe)        # get FILTER update map based on forward-estimated state
+        L = LFil(t, ρe, ρf)        # get FILTER update map based on forward-estimated state
 
         # update the buffermaps to remember the Hamiltonian operation that was chosen
         push!(buffermaps, sparse(L))
@@ -463,9 +477,6 @@ function forwardbayesian((t0, tf), ρ, (Hs, Hf)::Tuple, Jf, C; dt=1e-3, td::Time
 
     forwardtrajectory(ts, (ρs0, ρf0), Meas, USys, LFil; dt=1e-3, r0=r0, td=td)
 end # bayesian
-
-
-
 
 function sbayesian((t0, tf), ρ, H::QOp, J, C; dt=1e-3)
 
