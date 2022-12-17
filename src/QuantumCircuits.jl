@@ -20,9 +20,11 @@ export bayesian, rouchon, ensemble
 include("superevolution.jl")
 export sbayesian, ssbayesian, forwardtrajectory, forwardbayesian
 
+include("feedback.jl")
+export Feedback, ForwardEstimation, NoFeedback, HamiltonianFE, HamLindFE, nofeedback, hamiltonianfe, hamlindfe
+
 include("../utilities/SingleQubitOperators.jl")
 include("../utilities/TwoQubitOperators.jl")
-
 include("../Tests/Tests.jl")
 
 
