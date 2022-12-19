@@ -5,3 +5,6 @@
 
 # julia
 Manifest.toml
+
+# vim
+*.swp

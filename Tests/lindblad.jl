@@ -3,7 +3,7 @@ gaussdecay(γ) = t -> exp(-(γ*t)^2)
 expgauss(Γ, γ) = t -> exp(-Γ * t) * exp(-(γ*t)^2)
 
 # checks we obtain the correct exponential solution for σz lindblad decay
-function lindblad(γ; tolerance = 0.001)
+function lindblad(γ; tolerance = 0.001, kwargs...)
 
     tf = 10.0
     ψ0 = normalize(g + e)
@@ -24,7 +24,7 @@ function lindblad(γ; tolerance = 0.001)
 end
 
 # tests we can reproduce exponential-gaussian decay curves using time-dependent Lindblad operators
-function lindblad_timedep(Γ, γ; tolerance = 0.001)
+function lindblad_timedep(Γ, γ; tolerance = 0.001, kwargs...)
 
     ψ0 = normalize(g + e)
     tf = 10.0
@@ -66,7 +66,7 @@ end
 
 dif(x, y) = maximum(abs.(x .- y))
 
-function test_lindblad(; tolerance = 0.001)
+function test_lindblad(; tolerance = 0.001, kwargs...)
 
         @testset "lindblad constant decay" begin
             for γ in 0:0.5:2.0
@@ -90,7 +90,7 @@ function test_lindblad(; tolerance = 0.001)
 
 end
 
-function multilindblad(; γ1 = 0.1, γ2 = 0.2, γ3 = 0.3)
+function multilindblad(; γ1 = 0.1, γ2 = 0.2, γ3 = 0.3, kwargs...)
 
     H = Iq
     Γ1 = γ1

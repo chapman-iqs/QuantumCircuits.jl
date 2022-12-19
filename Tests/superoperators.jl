@@ -4,7 +4,7 @@ import .QuantumCircuits: supdate, update, ham, sham, lind, slind, meas, smeas
 A series of checks that the superoperator functions match what we get from sandwiching operations.
 """
 
-function superops(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true)
+function superops(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true, kwargs...)
 
     # generate a random state and random operator for testing
     ρ = dm(QuantumOpticsBase.randstate(basis))
@@ -22,7 +22,7 @@ function superops(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true)
     return bool
 end
 
-function superham(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true, dt=1e-3)
+function superham(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true, dt=1e-3, kwargs...)
 
         # generate a random state and random Hermitian operator for testing
         ρ = dm(QuantumOpticsBase.randstate(basis))
@@ -44,7 +44,7 @@ function superham(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true, dt=
         return bool
 end
 
-function superlind(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true, dt=1e-3)
+function superlind(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true, dt=1e-3, kwargs...)
 
         # generate a random state and random operator for testing
         ρ = dm(QuantumOpticsBase.randstate(basis))
@@ -68,7 +68,7 @@ function superlind(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true, dt
 end
 
 
-function supermeas(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true, dt=1e-3)
+function supermeas(; basis=SpinBasis(1//2), tolerance = 1e-9, verbose = true, dt=1e-3, kwargs...)
 
         ρ = dm(QuantumOpticsBase.randstate(basis))
         A = QuantumOpticsBase.randoperator(basis)

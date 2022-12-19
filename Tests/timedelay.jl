@@ -1,4 +1,4 @@
-function timedelay(td; showplot=false)
+function timedelay(td; showplot=false, kwargs...)
 
     Ωr = 2π * 0.15
     H1(t::Timescale, ρ::State) = Ωr * σx * (1 - fidelity(ρ, normalize(g + e)))
@@ -30,7 +30,7 @@ function timedelay(td; showplot=false)
     return maximum(map(i -> abs(1 - fidelity(ψs[i], sol.ρ[i])), 1:length(sol.ρ))) < 0.00001
 end
 
-function test_timedelay()
+function test_timedelay(; kwargs...)
 
     @testset "time delay" begin
         for td in 0:0.2:2.0

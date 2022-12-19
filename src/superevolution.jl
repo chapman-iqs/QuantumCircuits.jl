@@ -85,7 +85,7 @@ Uses an exact (dense) matrix exponential, assuming no Timescale-dependence.
     - U::SuperOperator : Evolution superoperator
     or
     - (t, ρ) -> U(t, ρ)
-    or
+   or
     - t -> U(t)
 """
 function sham(dt::Timescale, H::QOp)::SuperOperator
@@ -488,7 +488,7 @@ function sbayesian((t0, tf), ρ, H::QOp, J, C; dt=1e-3)
     U = sham(dt, H)
     L = slind(dt, J)(tt, ρρ) # assumes const lindblad
     Meas = smeas(dt, C)
-ρe
+    
     return strajectory(collect(t0:dt:tf), ρ, Meas, U, L; dt=dt)
 end
 
