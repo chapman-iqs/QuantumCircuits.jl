@@ -115,7 +115,7 @@ function bayesian(feedback::HamiltonianFE, (t0, tf), ρ, (Hs, Hf), (Js, Jf), C; 
     ρs0 = length(Js) > 0 && typeof(ρ) <: Ket ? dm(ρ) : ρ
     ρf0 = length(Jf) > 0 && typeof(ρ) <: Ket ? dm(ρ) : ρ
 
-    trajectory(feedback, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, mf); dt=1e-3, r0=r0, td=td)
+    trajectory(feedback, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, mf); dt=dt, r0=r0, td=td)
 end # bayesian
 
 # OLD TRAJECTORY STUFF THAT NEEDS TO BE REFACTORED
