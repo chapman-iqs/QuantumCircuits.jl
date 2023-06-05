@@ -1,20 +1,23 @@
 """
+NOTE: These ideas were fleshed out and incorporated into the Simulations framework that is currently one of Sacha's private
+repositories. We may want to clean that up and release it as a helper package.
+
 This brief tutorial assumes you want to save data and simulation parameters as part of your workflow.
 
 Start by using QuantumCircuits, as well as operators for the system you'll want to simulation.
 For commonly simulated systems, QuantumCircuits exports submodules (e.g. SingleQubitOperators,
 TwoQubitOperators) with operators for those dimensions with standard names.
 
-You can also import the submodule QubitPlots if you plan to plot anything.
 """
+include("../src/QuantumCircuits.jl")
 
-using QuantumCircuits
-using QuantumCircuits.SingleQubitOperators
-using QubitPlots
-# using QuantumCircuits.QubitPlots
+using .QuantumCircuits
+using .QuantumCircuits.SingleQubitOperators
+using Plots, Measures
+include("../plots/single_qubit_plots.jl")
+include("../plots/ensembleplots.jl")
 
-using Parameters
-using ProgressMeter
+using Parameters, ProgressMeter 
 
 """
 Next, define parameters of the simulation. For later interpretation of your results, I recommend
