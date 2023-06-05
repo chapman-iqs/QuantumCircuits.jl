@@ -10,7 +10,7 @@ J :: Vector{Tuple{Qop, Rate}},				-- vector of tuples of Lindblad operators and 
 C :: Vector{Tuple{Qop, Rate, Efficiency}}; 	-- vector of tuples of measurement operators and their rates
 
 Keyword Arguments:
-dt :: Timescale = 1e-4,							-- simulation time step
+dt :: Timescale = 1e-4,						-- simulation time step
 records = Vector{Record}[],					-- vector of vector of input measurement records, s.t. records[i] gives the records
 												for the ith trajectory, and records[i][m]::Record gives the record corresponding
 												to measurement of the mth measurement operator

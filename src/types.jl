@@ -1,4 +1,4 @@
-# Solution holds solutions to bayesian or rouchon (rouchon not implemented)#################################
+# Solution holds solutions to bayesian or rouchon (rouchon not implemented)
 # Abstract types and type aliases
 abstract type QObj <: Any end
 
@@ -25,7 +25,6 @@ const rr = Readout([0.0])
 const RR = Record([0.0])
 const ψψ = Ket(SpinBasis(1//2))
 const ρρ = identityoperator(SpinBasis(1//2)) # State
-
 
 const BasisName = Union{Symbol, Vector{Symbol}}
 
