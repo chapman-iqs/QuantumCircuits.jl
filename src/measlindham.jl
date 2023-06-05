@@ -89,6 +89,8 @@ function ham(dt, H::Function)
 	# evaluate H for specific inputs (using test constants tt::Timescale, rr::Record, ρρ::State)
 	if applicable(H, tt)
 		(t::Timescale, ρ::State) -> ham(dt, H(t))(t, ρ)
+	elseif applicable(H, tt, ρρ)
+		(t::Timescale, ρ::State, ρd::State, r::Readout) -> ham(dt, H(t, ρd))(t, ρ)
 	else
 		(t::Timescale, ρ::State, ρd::State, r::Readout) -> ham(dt, H(t, ρd, r))(t, ρ)
 	end

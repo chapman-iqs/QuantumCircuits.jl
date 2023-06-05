@@ -20,7 +20,7 @@ const systemfilter2h2l = SystemFilter2H2L()
 bayesian(::NoFeedback, args...; kwargs...) = bayesian(args...; kwargs...)
 trajectory(::NoFeedback, args...; kwargs...) = trajectory(args...; kwargs...)
 
-function trajectory(::HamiltonianFE, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, mf); dt=1e-3, r0=[0.0], td = 0.0)
+function trajectory(::HamiltonianFE, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, mf); dt=1e-3, r0=[0.0], td = 0.0, forwardestimate=true)
 
 	# initialize system
     ρs = ρs0
@@ -36,7 +36,7 @@ function trajectory(::HamiltonianFE, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, 
 
     # delay and buffer maps
     delay = Int64(round(td / dt)) + 1
-    Id = identityoperator(Us(0.0, ρs0))
+    Id = identityoperator(Us(0.0, ρs0, r0))
     buffermaps = [Id for i in 1:(delay-1)]
     ubuffer = Id
 
@@ -48,7 +48,8 @@ function trajectory(::HamiltonianFE, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, 
 
         # delayed filter state
         # before td is reached, we just use the initial filter state
-        ρf_delayed = i <= delay ? ρf0 : ρf_list[i - delay] 
+        ρf_delayed = i <= delay ? ρf0 : ρf_list[i - delay]
+		r_delayed = i <= delay ? r0 : readouts[i - delay]
 
         # old version
         # foldr does "last applied first" -- so the most recent unitary is first in the list, and is applied last
@@ -59,8 +60,9 @@ function trajectory(::HamiltonianFE, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, 
         ρe = update(ubuffer, ρf_delayed)
 
         # get the unitaries for this timestep, and update buffer
-        us = Us(t, ρe)
-        uf = Uf(t, ρe)
+		ρeff = forwardestimate ? ρe : ρf_delayed
+        us = Us(t, ρeff, r_delayed)
+        uf = Uf(t, ρeff, r_delayed)
         pushfirst!(buffermaps, uf)
         uf_last = pop!(buffermaps)
 
@@ -87,7 +89,7 @@ function trajectory(::HamiltonianFE, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, 
 	return Solution(collect(ts), ρs_list, records), Solution(collect(ts), ρf_list), Solution(collect(ts), ρe_list)
 end
 
-function bayesian(feedback::HamiltonianFE, (t0, tf), ρ, (Hs, Hf), (Js, Jf), C; dt=1e-3, td = 0.0)
+function bayesian(feedback::HamiltonianFE, (t0, tf), ρ, (Hs, Hf), (Js, Jf), C; dt=1e-3, td = 0.0, forwardestimate=true)
 	# Hs, Hf = convertham.(Hpair)
     # currently, Hs and Hf are both assumed to be functions of (t::Timescale, ρ::State)
 
@@ -98,12 +100,12 @@ function bayesian(feedback::HamiltonianFE, (t0, tf), ρ, (Hs, Hf), (Js, Jf), C; 
     # system
     # Us() = exp( -im * dt * DenseOperator(Hs)
     # Us(t::Timescale) = exp( -im * dt * DenseOperator(Hs(t)))
-    Us(t::Timescale, ρe::State) = exp( -im * dt * DenseOperator(Hs(t, ρe)))
+    Us(t::Timescale, ρe::State, r::Readout) = exp( -im * dt * DenseOperator(Hs(t, ρe, r)))
     
     # filter
     # Uf() = exp( -im * dt * DenseOperator(Hf)) 
     # Uf(t::Timescale) = exp( -im * dt * DenseOperator(Hf(t)))
-    Uf(t::Timescale, ρe::State) = exp( -im * dt * DenseOperator(Hf(t, ρe)))
+    Uf(t::Timescale, ρe::State, r::Readout) = exp( -im * dt * DenseOperator(Hf(t, ρe, r)))
 
     # define lindblad / measurement superoperator functions (not matrices, for efficiency)
 	ms = meas(dt, C; sample=true) 	# "system" measurement function (generates a readout based on system state)
@@ -115,7 +117,7 @@ function bayesian(feedback::HamiltonianFE, (t0, tf), ρ, (Hs, Hf), (Js, Jf), C; 
     ρs0 = length(Js) > 0 && typeof(ρ) <: Ket ? dm(ρ) : ρ
     ρf0 = length(Jf) > 0 && typeof(ρ) <: Ket ? dm(ρ) : ρ
 
-    trajectory(feedback, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, mf); dt=dt, r0=r0, td=td)
+    trajectory(feedback, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, mf); dt=dt, r0=r0, td=td, forwardestimate=forwardestimate)
 end # bayesian
 
 # OLD TRAJECTORY STUFF THAT NEEDS TO BE REFACTORED
@@ -373,7 +375,9 @@ function bayesian(feedback::SystemFilter2H2L, (t0, tf), ρ, Hpair::Tuple, Jpair:
 		error(str)
 	end
 
-	Hs, Hf = convertham.(Hs0, Hf0)
+	# Hs, Hf = convertham.(Hs0, Hf0)
+	Hs = Hs0
+	Hf = Hf0
 
 	ts = range(t0, tf, step=dt)
 	r0::Readout = [0.0 for i in 1:length(C)] # initial, empty Readout object
