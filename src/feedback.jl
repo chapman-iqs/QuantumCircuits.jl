@@ -79,7 +79,7 @@ function trajectory(::HamiltonianFE, ts, (ρs0, ρf0), (Us, Uf), (ls, lf), (ms, 
 end
 
 function bayesian(feedback::HamiltonianFE, (t0, tf), ρ, (Hs, Hf), (Js, Jf), C; dt=1e-3, td = 0.0, forwardestimate=true)
-	# Hs, Hf = convertham.(Hpair)
+	Hs, Hf = convertham.((Hs, Hf))
     # currently, Hs and Hf are both assumed to be functions of (t::Timescale, ρ::State)
 
 	ts = range(t0, tf, step=dt)

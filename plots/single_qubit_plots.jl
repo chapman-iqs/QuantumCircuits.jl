@@ -1,4 +1,4 @@
-using LaTeXStrings
+using Plots, Measures, LaTeXStrings
 
 "-- Color palettes ----------------------------------------------------------------------------------------------------"
 # single qubit
