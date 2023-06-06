@@ -6,5 +6,8 @@
 # julia
 Manifest.toml
 
+# figures
+*.png
+
 # vim
 *.swp

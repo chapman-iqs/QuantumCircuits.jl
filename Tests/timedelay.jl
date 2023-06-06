@@ -1,4 +1,4 @@
-function timedelay(td; showplot=false, kwargs...)
+function timedelay(td; makeplots=false, plotpath="test_result_plots", kwargs...)
 
     Ωr = 2π * 0.15
     H1(t::Timescale, ρ::State) = Ωr * σx * (1 - fidelity(ρ, normalize(g + e)))
@@ -9,8 +9,9 @@ function timedelay(td; showplot=false, kwargs...)
 
     sol = bayesian((t0, tf), ψ0, H1, [], []; dt = dt, td = td)
     sol = Solution(sol, qbasis)
-    if showplot
+    if makeplots
         plot(blochtimeseries, sol.t, sol.exps...)
+        savefig(joinpath(plotpath, "timedelay_td_$td.png"))
     end
 
     # solve by hand and test
@@ -34,7 +35,7 @@ function test_timedelay(; kwargs...)
 
     @testset "time delay" begin
         for td in 0:0.2:2.0
-            @test timedelay(td)
+            @test timedelay(td; kwargs...)
         end
     end
 end

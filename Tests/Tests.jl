@@ -25,6 +25,8 @@ module Tests
 using ..QuantumCircuits
 using ..QuantumCircuits.SingleQubitOperators
 using Test
+using Plots, Measures
+include("../plots/single_qubit_plots.jl")
 
 export runtests, test_timedelay, test_lindblad, test_superops, test_sbayesian, test_ssbayesian
 
@@ -37,9 +39,15 @@ include("run.jl")
 # include("analytical.jl")
 
 
-function runtests(; functions = [test_superops, test_lindblad, test_timedelay, test_sbayesian], kwargs...)
+function runtests(; functions = [test_superops, 
+                                 test_lindblad, 
+                                 test_timedelay, 
+                                 test_sbayesian], 
+                    makeplots = false,
+                    kwargs...)
+
     for f in functions
-        f(; kwargs...)
+        f(; makeplots=makeplots, kwargs...)
     end
 end
 
