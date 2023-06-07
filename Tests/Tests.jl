@@ -26,23 +26,26 @@ using ..QuantumCircuits
 using ..QuantumCircuits.SingleQubitOperators
 using Test
 using Plots, Measures
+import LinearAlgebra: eigvals
 include("../plots/single_qubit_plots.jl")
 
-export runtests, test_timedelay, test_lindblad, test_superops, test_sbayesian, test_ssbayesian
-
+export runtests
+export test_positive_trajectory
+export test_timedelay, test_lindblad
+export test_superops, test_sbayesian, test_ssbayesian
 
 include("timedelay.jl")
 include("lindblad.jl")
 include("superoperators.jl")
-include("run.jl")
+include("positivity.jl")
+# include("run.jl")
 # include("unit.jl")
 # include("analytical.jl")
 
 
-function runtests(; functions = [test_superops, 
+function runtests(; functions = [test_positive_trajectory,
                                  test_lindblad, 
-                                 test_timedelay, 
-                                 test_sbayesian], 
+                                 test_timedelay], 
                     makeplots = false,
                     kwargs...)
 

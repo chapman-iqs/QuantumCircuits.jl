@@ -7,7 +7,7 @@ include("../plots/single_qubit_plots.jl")
 include("../plots/ensembleplots.jl")
 
 # define parameters of the simulation
-Ω = 2π * 0.5
+Ω = 2π * 1.0
 Γ = 0.2
 η = 1.0
 
