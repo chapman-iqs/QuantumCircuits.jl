@@ -30,7 +30,7 @@ import LinearAlgebra: eigvals
 include("../plots/single_qubit_plots.jl")
 
 export runtests
-export test_positive_trajectory
+export test_positive_trajectory, test_single_timestep, bayesian_update
 export test_timedelay, test_lindblad
 export test_superops, test_sbayesian, test_ssbayesian
 
@@ -38,12 +38,14 @@ include("timedelay.jl")
 include("lindblad.jl")
 include("superoperators.jl")
 include("positivity.jl")
+include("single-time-step.jl")
 # include("run.jl")
 # include("unit.jl")
 # include("analytical.jl")
 
 
 function runtests(; functions = [test_positive_trajectory,
+                                 test_single_timestep,
                                  test_lindblad, 
                                  test_timedelay], 
                     makeplots = false,

@@ -3,19 +3,11 @@
 **QuantumCircuits.jl** is a numerical framework written in Julia for simulating quantum evolution, with a focus on superconducting circuits, and builds on [QuantumOptics.jl](https://github.com/qojulia/QuantumOptics.jl).
 
 ## Usage
-
-```jl
-using QuantumOptics
-q = SpinBasis(1//2)
-ρ0 = dm(spindown(q))
-J(t) = [√Γ*σz]
-C(t) = [√(Γ*η)*σz]
-H(t) = [Ω*σy/2]
-
-using QuantumCircuits
-tt, ρs, dy = rouchon(tspan, ρ0, H, J, C; dt=1e-4, dy=dy, fn=ρ->ρ)
-tt, ρs, dy = bayesian(tspan, ρ0, H, J, C; dt=1e-4, dy=dy, fn=ρ->ρ)
-tt, ρss, dys = ensemble(method, tspan, ρ0, H, J, C; N=10, dt=1e-4, dy=dy, fn=ρ->ρ)
-```
-
-[Efficient Quantum Filtering for Quantum Feedback Control](https://arxiv.org/abs/1410.5345) (Pierre Rouchon, Jason F. Ralph)
+To use and test the package while still in development,
+1. Clone the package
+2. Navigate to the location of the repository on your computer
+3. Open a julia REPL session by typing `julia' in the terminal
+4. Go into Pkg mode and activate / resolve the environment "] activate .", "resolve"
+5. 
+a) Run tests: "] test"
+b) And / or, run examples: from the REPL, activate environment, then "include("examples/monitored_rabi.jl")" etc.

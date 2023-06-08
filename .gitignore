@@ -6,8 +6,9 @@
 # julia
 Manifest.toml
 
-# figures
+# figures and other testing / development
 *.png
+dev.jl
 
 # vim
 *.swp
