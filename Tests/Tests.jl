@@ -30,29 +30,45 @@ import LinearAlgebra: eigvals
 include("../plots/single_qubit_plots.jl")
 
 export runtests
-export test_positive_trajectory, test_single_timestep, bayesian_update, lindblad_Γ2_decay, ham_update
-export test_timedelay, test_lindblad
-export test_superops, test_sbayesian, test_ssbayesian
 
 include("timedelay.jl")
+export test_timedelay
+
 include("lindblad.jl")
+export test_lindblad
+
 include("superoperators.jl")
+export test_superops, test_sbayesian, test_ssbayesian
+
 include("positivity.jl")
+export test_positive_trajectory
+
 include("single-time-step.jl")
+export test_single_timestep, bayesian_update, lindblad_Γ2_decay, ham_update
+
+include("integration-tests.jl")
+export test_integration, returns_solution
+
 # include("run.jl")
 # include("unit.jl")
 # include("analytical.jl")
 
 
-function runtests(; functions = [test_positive_trajectory,
+function runtests(; functions = [
+                                test_positive_trajectory,
                                  test_single_timestep,
                                  test_lindblad, 
-                                 test_timedelay], 
+                                 test_timedelay,
+                                 test_integration], 
+                    solvers = [rouchon, bayesian],
                     makeplots = false,
                     kwargs...)
 
-    for f in functions
-        f(; makeplots=makeplots, kwargs...)
+    for solve in solvers
+        println("\n\n**************** Running tests for ", solve, " solver: **************** \n")
+        for f in functions
+            f(; makeplots=makeplots, solve=solve, kwargs...)
+        end
     end
 end
 

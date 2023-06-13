@@ -25,7 +25,103 @@ ts :: list of simulation times
 ρs :: fn(ρ) at each simulation time
 r :: input OR simulated record, depending on value of keyword argument r
 """
+# non-feedback trajectory generating its own measurement record
+function rouchon((t0, tf), ρ, H0, J0, C0; fn=ρ->ρ, dt=1e-4)
 
+    ### initialize
+    ts = range(t0, tf, step=dt)                         # time series
+    r0::Readout = [0.0 for i in 1:length(C0)]            # initial, empty Readout object
+    H = isa(H0, Function) ? H0 : t -> H0
+    # H = (typeof(H0) <: Function) ? convertham(H0) : H0  # Hamiltonian function conversion
+
+    # convert ρ to a density matrix
+    if typeof(ρ) <: Ket
+        ρ = dm(ρ)
+    end
+    # if length(J0) > 0 && typeof(ρ) <: Ket
+	# 	ρ = dm(ρ)
+	# end
+
+    # loop elements
+    ρ0 = ρ
+    fnρs = [fn(ρ0)]
+    readouts = Readouts([r0])
+
+    # initalize rouchon
+    # Id = isa(ρ, Ket) ? identityoperator(ρ.basis) : identityoperator(ρ.basis_l)
+    Id = identityoperator(ρ.basis_l)
+    Nt = length(ts)
+    Nj = length(J0)
+    Nc = length(C0)
+
+    # H = length(methods(H0)) > 0 ? H0 : t -> H0
+    # J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0)
+
+    # modify J
+	J = []
+	for (j, Γ) in J0
+		push!(J, isa(J, Function) ? √Γ * j : (t -> √Γ * j) ) end
+
+    # modify C and sample random numbers for readout
+	C = []
+    dy = []
+	dW = []
+	dist = Normal(0, √dt)
+
+	for (i, (c, Γ, η)) in enumerate(C0)
+		m = √Γ * η * c
+		push!(C, isa(m, Function) ? m : (t -> m))
+        push!(dW, rand(dist, Nt))
+		push!(dy, zeros(Nt))
+		# push!(C, length(methods(c)) > 0 ? (c,τm,η) : (t -> c,τm,η))
+	end
+
+    # loop over times
+    for (n, t) in enumerate(ts[2:end])
+        M = Id - im * H(t) * dt
+
+        # iterate over deterministic collapse operators J
+        D = 0Id
+        for j in 1:Nj
+            M += -0.5J[j](t)' * J[j](t) * dt
+            D += J[j](t) * ρ * J[j](t)' * dt
+        end
+
+        # initialize dy value, if simulation
+        for (i, c) in enumerate(C)
+            dy[i][n] = (real(tr(c(t) * ρ + ρ * c(t)') * dt) + dW[i][n])
+        end
+
+        # iterate over stochastic collapse operators C
+        for c in 1:Nc
+            # println("length(dy) = ", length(dy))
+            M += C[c](t) * dy[c][n]
+            # D += -C[c](t)*ρ*C[c](t)'*dt
+
+            # nested sum
+            for s in 1:Nc
+                M += 0.5C[c](t) * C[s](t) * (dy[c][n] * dy[s][n] - δ(c,s) * dt)
+            end
+        end
+
+        # update ρ according to Rouchon method
+        ρ = M*ρ*M' + D
+        ρ = ρ / tr(ρ)
+        push!(fnρs, fn(ρ))
+    end
+
+	# revert to r (normalized) version of record
+    r = Vector{Float64}[]
+    for (i, (c, Γ, η)) in enumerate(C0)
+        τm = 1/(2Γ*η)
+        push!(r, dy[i] .* sqrt(τm) ./ dt)
+    end
+
+    return Solution(collect(ts), fnρs, r)
+end # rouchon
+
+# old rouchon method
+"""
 function rouchon((t0, tf), ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
     ts = range(t0, tf, step=dt)
 	ρ = (typeof(ρ) <: Ket) ? dm(ρ) : ρ # eventually, include ket simulation functionality for rouchon
@@ -107,3 +203,5 @@ function rouchon((t0, tf), ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
 
     return Solution(collect(ts), ρs, r)
 end # rouchon
+
+"""

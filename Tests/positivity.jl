@@ -1,7 +1,12 @@
 ispositive(ψ::Ket; kwargs...) = ispositive(dm(ψ); kwargs...)
 ispositive(ρs::Vector; kwargs...) = prod(ispositive.(ρs; kwargs...))
+# should it be necessary to take real part of eigenvalues? rouchon has complex eigvals
 function ispositive(ρ::Operator; tolerance = 1e-6)
-    return prod(eigvals(ρ.data) .<= 1 + tolerance)
+    evals = eigvals(ρ.data)
+    isreal = prod(abs.(imag.(evals)) .<= tolerance)
+    lessthanone = prod(real.(evals) .<= 1 + tolerance)
+    greaterthanzero = prod(real.(evals) .> -1 * tolerance)
+    return isreal * lessthanone * greaterthanzero
 end
 
 function positive_trajectory(; solve=bayesian, tolerance=1e-6, kwargs...)
