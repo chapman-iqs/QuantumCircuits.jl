@@ -86,14 +86,14 @@ dif(x, y) = maximum(abs.(x .- y))
 
 function test_lindblad(; tolerance = 0.001, kwargs...)
 
-        @testset "lindblad constant decay" begin
+        @testset "lindblad constant decay (master equation comparison)" begin
             for γ in 0:0.5:2.0
                 x, y, z = lindblad(γ; tolerance=tolerance, kwargs...)
                 @test (x && y && z)
             end
         end
 
-        @testset "lindblad time-dep decay" begin
+        @testset "lindblad time-dep decay (master equation comparison)" begin
             for γ in 0:0.5:1.0
                 for Γ in 0:0.5:1.0
                     x, y, z = lindblad_timedep(Γ, γ; tolerance=tolerance, kwargs...)
@@ -108,17 +108,17 @@ function test_lindblad(; tolerance = 0.001, kwargs...)
 
 end
 
-function multilindblad(; γ1 = 0.1, γ2 = 0.2, γ3 = 0.3, kwargs...)
+# function multilindblad(; γ1 = 0.1, γ2 = 0.2, γ3 = 0.3, kwargs...)
 
-    H = Iq
-    Γ1 = γ1
-    Γ2(t::Timescale) = γ2
-    Γ3(t::Timescale, ρ::State) = γ3
+#     H = Iq
+#     Γ1 = γ1
+#     Γ2(t::Timescale) = γ2
+#     Γ3(t::Timescale, ρ::State) = γ3
 
-    J = [(σz, Γ1), (σx, Γ2), (σy, Γ3)]
-    C = []
-    tf = 10.0
-    ψ0 = normalize(g + 0.3 * im * e)
+#     J = [(σz, Γ1), (σx, Γ2), (σy, Γ3)]
+#     C = []
+#     tf = 10.0
+#     ψ0 = normalize(g + 0.3 * im * e)
 
-    sol = bayesian((0.0, tf), ψ0, H, J, C; dt = 1e-3)
-end
+#     sol = bayesian((0.0, tf), ψ0, H, J, C; dt = 1e-3)
+# end

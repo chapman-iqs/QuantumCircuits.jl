@@ -30,7 +30,7 @@ import LinearAlgebra: eigvals
 include("../plots/single_qubit_plots.jl")
 
 export runtests
-export test_positive_trajectory, test_single_timestep, bayesian_update
+export test_positive_trajectory, test_single_timestep, bayesian_update, lindblad_Γ2_decay, ham_update
 export test_timedelay, test_lindblad
 export test_superops, test_sbayesian, test_ssbayesian
 
