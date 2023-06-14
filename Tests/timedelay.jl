@@ -1,4 +1,4 @@
-function timedelay(td; makeplots=false, plotpath="test_result_plots", kwargs...)
+function timedelay(td; solve=bayesian, makeplots=false, plotpath="test_result_plots", kwargs...)
 
     Ωr = 2π * 0.15
     H1(t::Timescale, ρ::State) = Ωr * σx * (1 - fidelity(ρ, normalize(g + e)))
@@ -7,7 +7,7 @@ function timedelay(td; makeplots=false, plotpath="test_result_plots", kwargs...)
     (t0, tf) = 0.0, 10.0
     dt = 1e-3
 
-    sol = bayesian((t0, tf), ψ0, H1, [], []; dt = dt, td = td)
+    sol = solve((t0, tf), ψ0, H1, [], []; dt = dt, td = td)
     sol = Solution(sol, qbasis)
     if makeplots
         plot(blochtimeseries, sol.t, sol.exps...)
@@ -31,12 +31,16 @@ function timedelay(td; makeplots=false, plotpath="test_result_plots", kwargs...)
     return maximum(map(i -> abs(1 - fidelity(ψs[i], sol.ρ[i])), 1:length(sol.ρ))) < 0.00001
 end
 
-function test_timedelay(; kwargs...)
+function test_timedelay(; solve=bayesian, kwargs...)
 
     @testset "time delay" begin
-        for td in 0:0.2:2.0
-            @test timedelay(td; kwargs...)
+        if solve==bayesian
+            for td in 0:0.2:2.0
+                @test timedelay(td; solve=solve, kwargs...)
+            end
+        else
+            println("⬇︎⬇︎⬇︎ Time delay not yet implemented for rouchon method.")
         end
-    end
+     end
 end
 

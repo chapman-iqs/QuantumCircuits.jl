@@ -114,3 +114,12 @@ end
 
 "Kronecker delta function"
 δ(i,j) = Int(i == j);
+
+
+# extend QuantumOpticsBase dm
+dm(ρ::Operator) = ρ
+dm!(ρ::Operator) = ρ
+function dm!(ψ::Ket)
+	ψ = dm(ψ)
+	return ψ
+end

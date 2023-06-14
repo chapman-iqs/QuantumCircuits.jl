@@ -22,6 +22,6 @@ end
 function test_integration(; solve=bayesian, kwargs...)
 
     @testset "returns solution ($(solve))" begin
-        returns_solution(; solve=solve, kwargs...)   
+       @test returns_solution(; solve=solve, kwargs...)   
     end
 end

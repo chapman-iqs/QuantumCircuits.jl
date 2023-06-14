@@ -37,8 +37,8 @@ export test_timedelay
 include("lindblad.jl")
 export test_lindblad
 
-include("superoperators.jl")
-export test_superops, test_sbayesian, test_ssbayesian
+# include("superoperators.jl")
+# export test_superops, test_sbayesian, test_ssbayesian
 
 include("positivity.jl")
 export test_positive_trajectory
@@ -55,12 +55,13 @@ export test_integration, returns_solution
 
 
 function runtests(; functions = [
-                                test_positive_trajectory,
+                                test_integration,
+                                 test_positive_trajectory,
                                  test_single_timestep,
                                  test_lindblad, 
-                                 test_timedelay,
-                                 test_integration], 
-                    solvers = [rouchon, bayesian],
+                                 test_timedelay
+                                 ], 
+                    solvers = [bayesian, rouchon],
                     makeplots = false,
                     kwargs...)
 

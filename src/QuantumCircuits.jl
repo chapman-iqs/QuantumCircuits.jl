@@ -2,6 +2,7 @@ module QuantumCircuits
 
 using Reexport
 @reexport using QuantumOpticsBase
+import QuantumOpticsBase: dm
 using Distributions, Distributed, ProgressMeter
 
 include("types.jl")

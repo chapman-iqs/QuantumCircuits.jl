@@ -3,7 +3,7 @@ gaussdecay(γ) = t -> exp(-(γ*t)^2)
 expgauss(Γ, γ) = t -> exp(-Γ * t) * exp(-(γ*t)^2)
 
 # checks we obtain the correct exponential solution for σz lindblad decay
-function lindblad(γ; tolerance = 0.001, makeplots=false, plotpath="test_result_plots", kwargs...)
+function lindblad(γ; solve=bayesian, tolerance = 0.001, makeplots=false, plotpath="test_result_plots", kwargs...)
 
     tf = 4.0
     dt = 1e-3
@@ -13,7 +13,7 @@ function lindblad(γ; tolerance = 0.001, makeplots=false, plotpath="test_result_
     J = [(σz, γ/2)]
     C = []
 
-    sol = bayesian((0.0, tf), ψ0, H, J, C; dt=dt)
+    sol = solve((0.0, tf), ψ0, H, J, C; dt=dt)
 
     x, y, z = map(op -> expectations(sol, op), [σx, σy, σz])
 
@@ -32,7 +32,7 @@ function lindblad(γ; tolerance = 0.001, makeplots=false, plotpath="test_result_
 end
 
 # tests we can reproduce exponential-gaussian decay curves using time-dependent Lindblad operators
-function lindblad_timedep(Γ, γ; tolerance = 0.001, makeplots=false, plotpath="test_result_plots", kwargs...)
+function lindblad_timedep(Γ, γ; solve=bayesian, tolerance = 0.001, makeplots=false, plotpath="test_result_plots", kwargs...)
 
     ψ0 = normalize(g + e)
     tf = 4.0
@@ -43,7 +43,7 @@ function lindblad_timedep(Γ, γ; tolerance = 0.001, makeplots=false, plotpath="
 	J = [(σz, γL)]
 	C = []
 
-    sol = bayesian((0.0, tf), ψ0, H, J, C; dt=dt)
+    sol = solve((0.0, tf), ψ0, H, J, C; dt=dt)
 
     x, y, z = map(op -> expectations(sol, op), [σx, σy, σz])
 
@@ -62,7 +62,7 @@ function lindblad_timedep(Γ, γ; tolerance = 0.001, makeplots=false, plotpath="
 end
 
 # needs to be written still
-function lindblad_statedep(Γ, γ; tolerance = 0.001, kwargs...)
+function lindblad_statedep(Γ, γ; solve=bayesian, tolerance = 0.001, kwargs...)
 
     ψ0 = normalize(g + e)
     tf = 4.0
@@ -73,7 +73,7 @@ function lindblad_statedep(Γ, γ; tolerance = 0.001, kwargs...)
 	J = [(σz, γL)]
 	C = []
 
-    sol = bayesian((0.0, tf), ψ0, H, J, C; dt=dt)
+    sol = solve((0.0, tf), ψ0, H, J, C; dt=dt)
 	
     x, y, z = map(op -> expectations(sol, op), [σx, σy, σz])
 
@@ -84,11 +84,11 @@ end
 
 dif(x, y) = maximum(abs.(x .- y))
 
-function test_lindblad(; tolerance = 0.001, kwargs...)
+function test_lindblad(; solve=bayesian, tolerance = 0.001, kwargs...)
 
         @testset "lindblad constant decay (master equation comparison)" begin
             for γ in 0:0.5:2.0
-                x, y, z = lindblad(γ; tolerance=tolerance, kwargs...)
+                x, y, z = lindblad(γ; solve=solve, tolerance=tolerance, kwargs...)
                 @test (x && y && z)
             end
         end
@@ -96,7 +96,7 @@ function test_lindblad(; tolerance = 0.001, kwargs...)
         @testset "lindblad time-dep decay (master equation comparison)" begin
             for γ in 0:0.5:1.0
                 for Γ in 0:0.5:1.0
-                    x, y, z = lindblad_timedep(Γ, γ; tolerance=tolerance, kwargs...)
+                    x, y, z = lindblad_timedep(Γ, γ; solve=solve, tolerance=tolerance, kwargs...)
                     @test (x && y && z)
                 end
             end
