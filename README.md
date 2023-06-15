@@ -14,7 +14,8 @@ To use and test the package while still in development,
 Run tests: `] test`
 
 #### From the REPL
-```include("src/QuantumCircuits.jl")
+```
+include("src/QuantumCircuits.jl")
 using .QuantumCircuits
 using .QuantumCircuits.Tests
 
