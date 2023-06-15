@@ -19,14 +19,18 @@ include("src/QuantumCircuits.jl")
 using .QuantumCircuits
 using .QuantumCircuits.Tests
 
-# to run tests as testsets (comment out the test functions you don't want)
+# to run tests as testsets (comment out the test functions / solvers you don't want)
 runtests(; functions = [
                          test_integration,
                          test_positive_trajectory,
                          test_single_timestep,
                          test_lindblad, 
                          test_timedelay
-                        ])
+                        ],
+            solvers = [
+                        bayesian,
+                        rouchon
+                      ])
 
 # to run tests individually, as functions (you'll have to go into sourcecode to see what's available)
 # for example:
