@@ -25,7 +25,7 @@ module Tests
 using ..QuantumCircuits
 using ..QuantumCircuits.SingleQubitOperators
 using Test
-using Plots, Measures
+using Plots, Measures, Random
 import LinearAlgebra: eigvals
 include("../plots/single_qubit_plots.jl")
 
@@ -54,6 +54,7 @@ export test_integration, returns_solution
 # include("analytical.jl")
 
 
+
 function runtests(; functions = [
                                 test_integration,
                                  test_positive_trajectory,
@@ -71,6 +72,14 @@ function runtests(; functions = [
             f(; makeplots=makeplots, solve=solve, kwargs...)
         end
     end
+end
+
+
+function make_test_plot(makeplots::Bool, sol, solve, plotpath::String, testset_id::String, test_id::String)
+    path = mkpath(joinpath(plotpath, string(solve), testset_id))
+    sol = Solution(sol, qbasis)
+    plot(blochtimeseries, sol; title=string(solve))
+    savefig(joinpath(path, test_id))
 end
 
 

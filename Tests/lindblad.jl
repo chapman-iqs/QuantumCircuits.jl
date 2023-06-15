@@ -3,7 +3,7 @@ gaussdecay(γ) = t -> exp(-(γ*t)^2)
 expgauss(Γ, γ) = t -> exp(-Γ * t) * exp(-(γ*t)^2)
 
 # checks we obtain the correct exponential solution for σz lindblad decay
-function lindblad(γ; solve=bayesian, tolerance = 0.001, makeplots=false, plotpath="test_result_plots", kwargs...)
+function lindblad_const(γ; solve=bayesian, test_id="lindblad_const", testset_id="", tolerance = 0.001, makeplots=false, plotpath="test_result_plots", kwargs...)
 
     tf = 4.0
     dt = 1e-3
@@ -22,17 +22,18 @@ function lindblad(γ; solve=bayesian, tolerance = 0.001, makeplots=false, plotpa
     z_expected = 0.0 .* sol.t
 
     if makeplots
+        path = mkpath(joinpath(plotpath, string(solve), testset_id, test_id))
         times = collect(0.0:dt:tf)
         plot(blochtimeseries, times, x, y, z)
         plot!(blochtimeseries, times, x_expected, y_expected, z_expected; linestyle=:dash, color=:black, linewidth=0.7)
-        savefig(joinpath(plotpath, "lindblad_γ_$γ.png"))
+        savefig(joinpath(path, "γ_$γ.png"))
     end
 
     return [dif(x, x_expected), dif(y, y_expected), dif(z, z_expected)] .< tolerance
 end
 
 # tests we can reproduce exponential-gaussian decay curves using time-dependent Lindblad operators
-function lindblad_timedep(Γ, γ; solve=bayesian, tolerance = 0.001, makeplots=false, plotpath="test_result_plots", kwargs...)
+function lindblad_timedep(Γ, γ; test_id="lindblad_timedep", testset_id="", solve=bayesian, tolerance = 0.001, makeplots=false, plotpath="test_result_plots", kwargs...)
 
     ψ0 = normalize(g + e)
     tf = 4.0
@@ -52,17 +53,18 @@ function lindblad_timedep(Γ, γ; solve=bayesian, tolerance = 0.001, makeplots=f
     z_expected = 0.0 .* sol.t
 
     if makeplots
+        path = mkpath(joinpath(plotpath, string(solve), testset_id, test_id))
         times = collect(0.0:dt:tf)
         plot(blochtimeseries, times, x, y, z)
         plot!(blochtimeseries, times, x_expected, y_expected, z_expected; linestyle=:dash, color=:black, linewidth=0.7)
-        savefig(joinpath(plotpath, "lindblad_timedep_γ_$(γ)_Γ_$(Γ).png"))
+        savefig(joinpath(path, "γ_$(γ)_Γ_$(Γ).png"))
     end
 
     return [dif(x, x_expected), dif(y, y_expected), dif(z, z_expected)] .< tolerance
 end
 
 # needs to be written still
-function lindblad_statedep(Γ, γ; solve=bayesian, tolerance = 0.001, kwargs...)
+function lindblad_statedep(Γ, γ; test_id="lindblad_statedep", testset_id="", solve=bayesian, tolerance = 0.001, kwargs...)
 
     ψ0 = normalize(g + e)
     tf = 4.0
@@ -84,11 +86,11 @@ end
 
 dif(x, y) = maximum(abs.(x .- y))
 
-function test_lindblad(; solve=bayesian, tolerance = 0.001, kwargs...)
+function test_lindblad(; testset_id="lindblad_master_eq", solve=bayesian, tolerance = 0.001, kwargs...)
 
         @testset "lindblad constant decay (master equation comparison)" begin
             for γ in 0:0.5:2.0
-                x, y, z = lindblad(γ; solve=solve, tolerance=tolerance, kwargs...)
+                x, y, z = lindblad_const(γ; testset_id=testset_id, solve=solve, tolerance=tolerance, kwargs...)
                 @test (x && y && z)
             end
         end
@@ -96,7 +98,7 @@ function test_lindblad(; solve=bayesian, tolerance = 0.001, kwargs...)
         @testset "lindblad time-dep decay (master equation comparison)" begin
             for γ in 0:0.5:1.0
                 for Γ in 0:0.5:1.0
-                    x, y, z = lindblad_timedep(Γ, γ; solve=solve, tolerance=tolerance, kwargs...)
+                    x, y, z = lindblad_timedep(Γ, γ; testset_id=testset_id, solve=solve, tolerance=tolerance, kwargs...)
                     @test (x && y && z)
                 end
             end

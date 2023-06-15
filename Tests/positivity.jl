@@ -9,7 +9,7 @@ function ispositive(ρ::Operator; tolerance = 1e-6)
     return isreal * lessthanone * greaterthanzero
 end
 
-function positive_trajectory(; solve=bayesian, tolerance=1e-6, kwargs...)
+function positive_trajectory(; makeplots=false, testset_id="", test_id="positive_trajectory", plotpath="test_result_plots", solve=bayesian, tolerance=1e-6, kwargs...)
 
     Ω = 2π * 1.0
     Γ = 2.0
@@ -24,7 +24,7 @@ function positive_trajectory(; solve=bayesian, tolerance=1e-6, kwargs...)
     C = [(σz, Γ, η)]
 
     sol = solve((0.0, tf), ψ0, H, J, C; dt = dt)
-    sol = Solution(sol, qbasis)
+    make_test_plot(makeplots, sol, solve, plotpath, testset_id, test_id)
 
     # return plot(blochtimeseries, ts, exps...)
     return ispositive(sol.ρ; tolerance=tolerance)

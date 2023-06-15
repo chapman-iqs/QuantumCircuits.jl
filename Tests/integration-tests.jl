@@ -1,4 +1,4 @@
-function returns_solution(; solve=bayesian, kwargs...)
+function returns_solution(; solve=bayesian, makeplots=false, testset_id="", test_id="returns_solution", plotpath="test_result_plots", kwargs...)
 
     Ω = 2π * 1.0
     Γ = 2.0
@@ -12,16 +12,18 @@ function returns_solution(; solve=bayesian, kwargs...)
     J = [(σz, (1 - η) * Γ/2)]
     C = [(σz, Γ, η)]
 
-    sol = solve((0.0, tf), ψ0, H, J, C; dt = dt)
+    sol = solve((0.0, tf), ψ0, H, J, C; dt = dt)        
+    make_test_plot(makeplots, sol, solve, plotpath, testset_id, test_id)
 
     # return plot(blochtimeseries, ts, exps...)
     return isa(sol, Solution)
 end
 
 
-function test_integration(; solve=bayesian, kwargs...)
+function test_integration(; solve=bayesian, testset_id="integration", kwargs...)
 
     @testset "returns solution ($(solve))" begin
-       @test returns_solution(; solve=solve, kwargs...)   
+        Random.seed!()
+       @test returns_solution(; solve=solve, testset_id=testset_id, kwargs...)   
     end
 end
