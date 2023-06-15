@@ -52,6 +52,9 @@ export test_integration, returns_solution
 include("record.jl")
 export test_readout, record_distribution
 
+include("bayesian.jl")
+export test_bayesian, bayesian_dt_robustness
+
 # include("run.jl")
 # include("unit.jl")
 # include("analytical.jl")
