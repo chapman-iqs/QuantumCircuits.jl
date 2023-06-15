@@ -35,13 +35,13 @@ include("timedelay.jl")
 export test_timedelay
 
 include("lindblad.jl")
-export test_lindblad
+export test_lindblad, lindblad_const, lindblad_timedep
 
 # include("superoperators.jl")
 # export test_superops, test_sbayesian, test_ssbayesian
 
 include("positivity.jl")
-export test_positive_trajectory
+export test_positive_trajectory, positive_trajectory
 
 include("single-time-step.jl")
 export test_single_timestep, bayesian_update, lindblad_Γ2_decay, ham_update
