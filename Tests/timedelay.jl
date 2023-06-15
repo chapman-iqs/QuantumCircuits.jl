@@ -9,10 +9,10 @@ function timedelay(td; solve=bayesian, makeplots=false, test_id="timedelay", tes
 
     sol = solve((t0, tf), ψ0, H1, [], []; dt = dt, td = td)
     make_test_plot(makeplots, sol, solve, plotpath, testset_id, test_id)
-    if makeplots
-        plot(blochtimeseries, sol.t, sol.exps...)
-        savefig(joinpath(plotpath, string(solve), "timedelay_td_$td.png"))
-    end
+    # if makeplots
+    #     plot(blochtimeseries, sol.t, sol.exps...)
+    #     savefig(joinpath(plotpath, string(solve), "timedelay_td_$td.png"))
+    # end
 
     # solve by hand and test
     ψs = [ψ0]

@@ -85,7 +85,7 @@ function rouchon((t0, tf), ρ, H0, J0, C0; fn=ρ->ρ, dt=1e-4, records=Record[])
         # initialize dy value, if simulation
         if sim
             for (i, c) in enumerate(C)
-                dys[i][n] += real(tr(c(t) * ρ + ρ * c(t)') * dt)
+                dys[i][n] += real(tr(c(t) * ρ + ρ * c(t)') * dt)/sqrt(2)
             end
         end
 

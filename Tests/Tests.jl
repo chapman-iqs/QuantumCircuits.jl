@@ -25,7 +25,7 @@ module Tests
 using ..QuantumCircuits
 using ..QuantumCircuits.SingleQubitOperators
 using Test
-using Plots, Measures, Random
+using Plots, Measures, Random, Distributions
 import LinearAlgebra: eigvals
 include("../plots/single_qubit_plots.jl")
 
@@ -49,6 +49,9 @@ export test_single_timestep, bayesian_update, lindblad_Γ2_decay, ham_update
 include("integration-tests.jl")
 export test_integration, returns_solution
 
+include("record.jl")
+export test_readout, record_distribution
+
 # include("run.jl")
 # include("unit.jl")
 # include("analytical.jl")
@@ -60,7 +63,8 @@ function runtests(; functions = [
                                  test_positive_trajectory,
                                  test_single_timestep,
                                  test_lindblad, 
-                                 test_timedelay
+                                 test_timedelay,
+                                 test_readout
                                  ], 
                     solvers = [bayesian, rouchon],
                     makeplots = false,
