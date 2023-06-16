@@ -11,9 +11,9 @@ runtests(;
                         # test_positive_trajectory, 
                         # test_single_timestep, 
                         # test_lindblad, 
-                        # test_timedelay,
+                        test_timedelay,
                         # test_readout,
-                        test_bayesian
+                        # test_bayesian
                         ],
             solvers = [
                         bayesian,

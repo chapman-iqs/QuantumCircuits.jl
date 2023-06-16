@@ -27,12 +27,13 @@ using ..QuantumCircuits.SingleQubitOperators
 using Test
 using Plots, Measures, Random, Distributions
 import LinearAlgebra: eigvals
+import QuantumOpticsBase: randstate
 include("../plots/single_qubit_plots.jl")
 
 export runtests
 
 include("timedelay.jl")
-export test_timedelay
+export test_timedelay, filter_forward_estimate
 
 include("lindblad.jl")
 export test_lindblad, lindblad_const, lindblad_timedep
