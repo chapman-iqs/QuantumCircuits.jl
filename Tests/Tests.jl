@@ -29,6 +29,8 @@ using Plots, Measures, Random, Distributions
 import LinearAlgebra: eigvals
 import QuantumOpticsBase: randstate
 include("../plots/single_qubit_plots.jl")
+include("../plots/ensembleplots.jl")
+
 
 export runtests
 
@@ -55,6 +57,9 @@ export test_readout, record_distribution
 
 include("bayesian.jl")
 export test_bayesian, bayesian_dt_robustness
+
+include("ensemble.jl")
+export test_ensemble, ensemble_avg
 
 # include("run.jl")
 # include("unit.jl")

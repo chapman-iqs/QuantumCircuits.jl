@@ -1,4 +1,4 @@
-using Statistics
+import Statistics: mean
 
 "-- Color palettes ----------------------------------------------------------------------------------------------------"
 # single qubit
