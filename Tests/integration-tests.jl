@@ -13,10 +13,13 @@ function returns_solution(; solve=bayesian, makeplots=false, testset_id="", test
     C = [(σz, Γ, η)]
 
     sol = solve((0.0, tf), ψ0, H, J, C; dt = dt)        
-    make_test_plot(makeplots, sol, solve, plotpath, testset_id, test_id)
+    pass = isa(sol, Solution)
+    pass_string = pass ? "passed" : "failed"
+    
+    make_test_plot(makeplots, sol, solve, plotpath, testset_id, string(pass_string, "_", test_id))
 
     # return plot(blochtimeseries, ts, exps...)
-    return isa(sol, Solution)
+    return pass
 end
 
 

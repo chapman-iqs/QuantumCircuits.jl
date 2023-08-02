@@ -17,6 +17,9 @@ function record_distribution(ψ0, τ, dt; test_id="record", testset_id="", sampl
     @assert isa(μ_expected, Float64)
     σ2_expected = τ / dt
 
+    pass = prod([abs(dif(μ, μ_expected) / μ_expected), abs(dif(σ2, σ2_expected) / σ2_expected)] .< tolerance)
+    pass_string = pass ? "passed" : "failed"
+
     if makeplots
         path = mkpath(joinpath(plotpath, string(solve), testset_id, test_id, ψ0 == g ? "ground" : "excited"))
         xs = range(extrema(record)..., length=100)
@@ -24,10 +27,10 @@ function record_distribution(ψ0, τ, dt; test_id="record", testset_id="", sampl
         plot!(xs, gaussian(μ, σ).(xs); label="fit")
         plot!(xs, gaussian(μ_expected, sqrt(σ2_expected)).(xs); label="expected", lineestyle=:dash, color=:black)
         plot!(title="μ = $(μ), σ^2 = $(σ2)\n μ_exp = $(μ_expected), σ2_exp = $(σ2_expected)")
-        savefig(joinpath(path, "τ_$(τ)_dt_$(dt).png"))
+        savefig(joinpath(path, "$(pass_string)_τ_$(τ)_dt_$(dt).png"))
     end
 
-    return prod([abs(dif(μ, μ_expected) / μ_expected), abs(dif(σ2, σ2_expected) / σ2_expected)] .< tolerance)
+    return pass
 end
 gaussian(μ, σ) = x -> (1/(σ * sqrt(2π))) * exp(-(x - μ)^2 / (2σ^2) )
 

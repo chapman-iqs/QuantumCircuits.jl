@@ -24,15 +24,49 @@ function positive_trajectory(; makeplots=false, testset_id="", test_id="positive
     C = [(σz, Γ, η)]
 
     sol = solve((0.0, tf), ψ0, H, J, C; dt = dt)
-    make_test_plot(makeplots, sol, solve, plotpath, testset_id, test_id)
+    pass = ispositive(sol.ρ; tolerance=tolerance)
+    pass_string = pass ? "passed" : "failed"
+
+    make_test_plot(makeplots, sol, solve, plotpath, testset_id, string(pass_string, "_", test_id))
 
     # return plot(blochtimeseries, ts, exps...)
-    return ispositive(sol.ρ; tolerance=tolerance)
+    return pass
 end
 
-function test_positive_trajectory(; tolerance=1e-6, kwargs...)
+function maintains_purity(; makeplots=false, testset_id="", test_id="maintains_purity", plotpath="test_result_plots", solve=bayesian, tolerance=1e-6, kwargs...)
+
+    Ω = 2π * 1.0
+    Γ = 2.0
+    η = 1.0
+
+    ψ0 = dm(normalize(g + e))
+    tf = 10.0
+    dt = 1e-3
+
+    H = Ω/2 * σy
+    J = []
+    C = [(σz, Γ, η)]
+
+    sol = solve((0.0, tf), ψ0, H, J, C; dt = dt)
+    ps = purity.(sol.ρ)
+    pass = prod(abs.(1 .- ps) .< tolerance)
+    pass_string = pass ? "passed" : "failed"
+
+    make_test_plot(makeplots, sol, solve, plotpath, testset_id, string(pass_string, "_", test_id))
+
+    # return plot(blochtimeseries, ts, exps...)
+    return pass
+end
+
+function test_positivity_purity(; tolerance=1e-6, kwargs...)
+
     @testset "positive trajectory" begin
         @test positive_trajectory(; tolerance=tolerance, kwargs...)
     end
+    @testset "maintains purity" begin
+        @test maintains_purity(; tolerance=tolerance, kwargs...)
+    end
 end
+
+
 

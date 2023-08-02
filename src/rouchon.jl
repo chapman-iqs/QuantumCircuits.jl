@@ -33,8 +33,9 @@ function rouchon((t0, tf), ρ, H0, J0, C0; fn=ρ->ρ, dt=1e-4, records=Record[])
     # r0::Readout = [0.0 for i in 1:length(C0)]            # initial, empty Readout object
     H = isa(H0, Function) ? H0 : t -> H0
 
-    # convert ρ to a density matrix
-    if typeof(ρ) <: Ket
+    ### check if a pure-state simulation will suffice; otherwise, convert initial state to density matrix
+    pure = (typeof(ρ) <: Ket) && isempty(J0)
+    if !pure
         ρ = dm(ρ)
     end
 
@@ -45,7 +46,7 @@ function rouchon((t0, tf), ρ, H0, J0, C0; fn=ρ->ρ, dt=1e-4, records=Record[])
 
     # initalize rouchon
     # Id = isa(ρ, Ket) ? identityoperator(ρ.basis) : identityoperator(ρ.basis_l)
-    Id = identityoperator(ρ.basis_l)
+    Id = pure ? identityoperator(ρ.basis) : identityoperator(ρ.basis_l)
     Nt = length(ts)
     Nj = length(J0)
     Nc = length(C0)
@@ -65,9 +66,9 @@ function rouchon((t0, tf), ρ, H0, J0, C0; fn=ρ->ρ, dt=1e-4, records=Record[])
     dys = sim ? map(ctup -> rand(dist, Nt), C0) : records_to_dys(records, C0, dt)
 	C = []
 
-	for (i, (c, Γ, η)) in enumerate(C0)
-		m = √Γ * η * c
-		push!(C, isa(m, Function) ? m : (t -> m))
+	for (i, (m, Γ, η)) in enumerate(C0)
+		c = sqrt(η * Γ / 2) * m #√Γ * η * m
+		push!(C, isa(m, Function) ? c : (t -> c))
 		# push!(C, length(methods(c)) > 0 ? (c,τm,η) : (t -> c,τm,η))
 	end
 
@@ -79,13 +80,15 @@ function rouchon((t0, tf), ρ, H0, J0, C0; fn=ρ->ρ, dt=1e-4, records=Record[])
         D = 0Id
         for j in 1:Nj
             M += -0.5J[j](t)' * J[j](t) * dt
-            D += J[j](t) * ρ * J[j](t)' * dt
+            if !pure
+                D += J[j](t) * ρ * J[j](t)' * dt
+            end
         end
 
         # initialize dy value, if simulation
         if sim
             for (i, c) in enumerate(C)
-                dys[i][n] += real(tr(c(t) * ρ + ρ * c(t)') * dt)/sqrt(2)
+                dys[i][n] += real(expect(c(t) + c(t)', ρ)) * dt #real(tr(c(t) * ρ + ρ * c(t)') * dt) #/sqrt(2) took out sqrt 8-1-23
             end
         end
 
@@ -93,7 +96,9 @@ function rouchon((t0, tf), ρ, H0, J0, C0; fn=ρ->ρ, dt=1e-4, records=Record[])
         for c in 1:Nc
             # println("length(dy) = ", length(dy))
             M += C[c](t) * dys[c][n]
-            # D += -C[c](t)*ρ*C[c](t)'*dt
+            if !pure
+                D += -C[c](t)*ρ*C[c](t)'*dt # added this back in 8-1-23
+            end
 
             # nested sum
             for s in 1:Nc
@@ -102,8 +107,7 @@ function rouchon((t0, tf), ρ, H0, J0, C0; fn=ρ->ρ, dt=1e-4, records=Record[])
         end
 
         # update ρ according to Rouchon method
-        ρ = M*ρ*M' + D
-        ρ = ρ / tr(ρ)
+        ρ = pure ? normalize(M*ρ) : normalize(M*ρ*M' + D)
         push!(fnρs, fn(ρ))
     end
 
@@ -121,7 +125,7 @@ function record_to_dy(record::Record, (c, Γ, η), dt)
     τm = 1/(2Γ*η)
     return record .* dt ./ sqrt(τm)
 end
-function dy_to_record(dy, (c, Γ, η), dt)::Record
+function dy_to_record(dy, (m, Γ, η), dt)::Record
     τm = 1/(2Γ*η)
     return dy .* sqrt(τm) ./ dt
 end
