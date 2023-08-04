@@ -19,7 +19,7 @@ include("measlindham.jl")
 include("feedback.jl")
 export Feedback, ForwardEstimation, NoFeedback, HamiltonianFE, HamLindFE, nofeedback, hamiltonianfe, hamlindfe
 include("bayesian.jl")
-include("rouchon.jl")
+include("rouchon-new.jl")
 include("ensemble.jl")
 export bayesian, rouchon, ensemble
 

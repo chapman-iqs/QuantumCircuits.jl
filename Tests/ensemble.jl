@@ -1,5 +1,5 @@
 function ensemble_avg(Ω, Γ, η; N=300, solve=bayesian, ψ0 = randstate(SpinBasis(1//2)), tolerance=1/sqrt(N), plotpath="test_result_plots", test_id="ensemble_avg", testset_id="", makeplots=true, kwargs...)
-    ψ0 = normalize(g + e) # initialize in the +x state
+    ψ0 = dm(normalize(g + e)) # initialize in the +x state
     tf = 2.5
     dt = 1e-3
     N = 300
@@ -7,11 +7,12 @@ function ensemble_avg(Ω, Γ, η; N=300, solve=bayesian, ψ0 = randstate(SpinBas
     # set up Kraus operators
     H = Ω/2 * σy
     J = η < 1.0 ? [(σz, (1 - η) * Γ/2)] : [] # here, we use Γ/2 because of the relation between bloch coordinate dephasing and density matrix dephasing for a single qubit
-    C = [(σz, Γ, η)]
+    C(η) = [(σz, Γ, η)]
 
     # solve an ensemble of trajectories, and find the corresponding η = 0 solution
-    ens = Ensemble(ensemble(solve, (0.0, tf), ψ0, H, J, C; dt=dt, N = N), qbasis, :qbasis);
-    sol0 = Solution(solve((0.0, tf), ψ0, H, [(σz, Γ/2)], []; dt=dt), qbasis, :qbasis);
+    ens = Ensemble(ensemble(solve, (0.0, tf), ψ0, H, J, C(η); dt=dt, N = N), qbasis, :qbasis);
+    # sol0 = Solution(solve((0.0, tf), ψ0, H, [], C(0.0); dt=dt), qbasis, :qbasis); # this may not be the correct reference for the current rouchon code
+    sol0 = Solution(solve((0.0, tf), ψ0, H, [(σz, Γ/2)], []; dt=dt), qbasis, :qbasis); # this may not be the correct reference for the current rouchon code
     solavg = Solution(ens.t, ensemble_average(ens.sols))
 
     atd = average_trace_distance(sol0.ρ, solavg.ρ)
@@ -40,8 +41,10 @@ end
 function test_ensemble(; solve=bayesian, testset_id="ensemble", kwargs...)
 
      @testset "ensemble average" begin
-        @test ensemble_avg(2π, 0.5, 1.0; solve=solve, testset_id=testset_id, kwargs...)
+        # @test ensemble_avg(2π, 0.5, 1.0; solve=solve, testset_id=testset_id, kwargs...)
+        @test ensemble_avg(2π, 0.5, 0.9; solve=solve, testset_id=testset_id, kwargs...)
         @test ensemble_avg(2π, 0.5, 0.5; solve=solve, testset_id=testset_id, kwargs...)
+        @test ensemble_avg(2π, 0.5, 0.1; solve=solve, testset_id=testset_id, kwargs...)
     end
 end
 

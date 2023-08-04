@@ -93,17 +93,25 @@ function rouchon((t0, tf), ρ, H0, J0, C0; fn=ρ->ρ, dt=1e-4, records=Record[])
         end
 
         # iterate over stochastic collapse operators C
-        for c in 1:Nc
-            # println("length(dy) = ", length(dy))
-            M += C[c](t) * dys[c][n]
+        # for c in 1:Nc
+        #     # println("length(dy) = ", length(dy))
+        #     M += C[c](t) * dys[c][n]
+        #     if !pure
+        #         D += -C[c](t)*ρ*C[c](t)'*dt # added this back in 8-1-23
+        #     end
+
+        #     # nested sum
+        #     for s in 1:Nc
+        #         M += 0.5C[c](t) * C[s](t) * (dys[c][n] * dys[s][n] - δ(c,s) * dt)
+        #     end
+        # end
+
+        for (i, (m, Γ, η)) in enumerate(C0)
+            M += C[i](t) * dys[i][n]
             if !pure
-                D += -C[c](t)*ρ*C[c](t)'*dt # added this back in 8-1-23
+                D += -C[i](t) * ρ * C[i](t)' * dt
             end
 
-            # nested sum
-            for s in 1:Nc
-                M += 0.5C[c](t) * C[s](t) * (dys[c][n] * dys[s][n] - δ(c,s) * dt)
-            end
         end
 
         # update ρ according to Rouchon method
