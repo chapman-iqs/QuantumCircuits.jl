@@ -1,237 +1,105 @@
 """
-    rouchon(T, ρ0, H, J, C; <keyword arguments>)
-
 Arguments:
 
-T :: tuple (ti,tf)
-ρ0 :: initial density matrix
-H :: (time-dependent) Hamiltonian
-J :: array of tuples (j, Γ) representing decoherence channel j at rate Γ
-C :: array of tuples (c, τ, η) representing measurement of c with timescale τ and collection efficiency η
-
-Keyword Arguments:
-
-dt :: time step; default dt=1e-4
-r :: record; default r=[], i.e. simulation generates record by randomly sampling distribution.
-            record should be input in the shape [r_1,...,r_Nc] given
-            length(C)=Nc collapse operators. Records should have shape
-            r_m[i] indexing the mth trajectory at time ts[i], where
-			ts = range(first(T), last(T), step=dt)
-fn : ρ → Any :: eval function (e.g. to return expectation values instead of density matrices)
-
-Returns: (ts, ρs, r)
-
-ts :: list of simulation times
-ρs :: fn(ρ) at each simulation time
-r :: input OR simulated record, depending on value of keyword argument r
+H :: Function -- Hamiltonian as a function of time
+J :: Vector{Tuple} -- vector of tuples of dissipation operators [(ji, Γi)]
+C :: Vector{Tuple} -- vector of tuples of measurement operators [(mi, Γi, ηi)]
 """
-# non-feedback trajectory generating its own measurement record
-function rouchon((t0, tf), ρ, H0, J0, C0; fn=ρ->ρ, dt=1e-4, records=Record[])
+rouchon_M(H::Operator, args...; kwargs...) = rouchon_M(t -> H, args...; kwargs...)
+function rouchon_M(H::Function, J, C, dt; dys::Function = rouchon_dy(C, dt))
+    
+    # initialization and conversion
+    Id = identityoperator(H(0))
 
-    ### initialize
+    # deterministic part
+    Jsum = mapreduce(+, J; init=0Id) do (j, Γ)        Γ * j' * j end
+    msum = mapreduce(+, C; init=0Id) do (m, Γ, η)     η * Γ/2 * m' * m  end
+
+    # stochastic part
+    mdy(ρ, dWs) = mapreduce(+, zip(C, dys(ρ, dWs)); init=0Id) do ((m, Γ, η), dy)
+                        sqrt(η * Γ/2) * m * dy
+                  end
+    mm(dWs) = mapreduce(+, 1:length(C), 1:length(C); init=0Id) do r, s
+            (mr, Γr, ηr) = C[r]
+            (ms, Γs, ηs) = C[s]
+            sqrt(ηr * ηs * Γr * Γs) / 4 * mr * ms * (dWs[r] * dWs[s] - δ(r,s) * dt)
+    end
+
+    # total   
+    Mn(t, ρ, dWs) = Id - (im * H(t) + Jsum/2 + msum/2)*dt + mdy(ρ, dWs) + mm(dWs)
+    return Mn
+end
+
+function rouchon_D(J)
+    Id(ρ) = identityoperator(ρ.basis_l)
+    return ρ -> mapreduce(+, J; init=0Id(ρ)) do (j, Γ)        Γ * j * ρ * j'           end
+end
+
+function rouchon_dy(C, dt)
+   return (ρ, dWs) -> map(zip(C, dWs)) do ((m, Γ, η), dW)
+                            c = sqrt(Γ * η/2) * m
+                            real(expect(c + c', ρ)) * dt + dW
+                end
+end
+
+function record_to_dy(record::Record, (c, Γ, η), dt, ts)
+    τm = 1/(2Γ*η)
+    return record .* dt ./ sqrt(τm)
+end
+function dy_to_record(dys, (m, Γ, η), dt)::Record
+    τm = 1/(2Γ*η)
+    return dys .* sqrt(τm) ./ dt
+end
+function records_to_dys(records::Vector{Record}, C, dt)
+    map(zip(records, C)) do (record, ctup)
+        record_to_dy(record, ctup, dt)
+    end
+end
+function dys_to_records(dys, C, dt)::Vector{Record}
+    map(zip(dys, C)) do (dy, ctup)
+        dy_to_record(dy, ctup, dt)
+    end
+end
+
+function rouchon((t0, tf), ρ, H, J, C; fn=ρ->ρ, dt=1e-4, records=Record[])
+
+    ### initialization and conversion
     ts = range(t0, tf, step=dt)                         # time series
-    # r0::Readout = [0.0 for i in 1:length(C0)]            # initial, empty Readout object
-    H = isa(H0, Function) ? H0 : t -> H0
 
     ### check if a pure-state simulation will suffice; otherwise, convert initial state to density matrix
-    pure = (typeof(ρ) <: Ket) && isempty(J0)
+    pure = (typeof(ρ) <: Ket) && isempty(J)
     if !pure
         ρ = dm(ρ)
     end
 
     # loop elements
     ρ0 = ρ
-    fnρs = [fn(ρ0)]
-    # readouts = Readouts([r0])
+    ρs = [ρ0]
+    dys::Function = rouchon_dy(C, dt)
+    dWs = map(t -> rand(Normal(0, √dt), length(C)), ts)
 
     # initalize rouchon
-    # Id = isa(ρ, Ket) ? identityoperator(ρ.basis) : identityoperator(ρ.basis_l)
-    Id = pure ? identityoperator(ρ.basis) : identityoperator(ρ.basis_l)
-    Nt = length(ts)
-    Nj = length(J0)
-    Nc = length(C0)
-
-    # modify J
-    J = map(J0) do (j, Γ)
-            isa(Γ, Function) ? (t -> √Γ(t) * j) : (t -> √Γ * j)
-        end
-	# J = []
-	# for (j, Γ) in J0
-	# 	push!(J, isa(J, Function) ? √Γ * j : (t -> √Γ * j) ) 
-    # end
-
-    # modify C and sample random numbers for readout
-    sim = isempty(records)
-    dist = Normal(0, √dt)
-    dys = sim ? map(ctup -> rand(dist, Nt), C0) : records_to_dys(records, C0, dt)
-	C = []
-
-	for (i, (m, Γ, η)) in enumerate(C0)
-		c = sqrt(η * Γ / 2) * m #√Γ * η * m
-		push!(C, isa(m, Function) ? c : (t -> c))
-		# push!(C, length(methods(c)) > 0 ? (c,τm,η) : (t -> c,τm,η))
-	end
+    M = rouchon_M(H, J, C, dt; dys=dys)
+    D = rouchon_D(J)
 
     # loop over times
-    for (n, t) in enumerate(ts[2:end])
-        M = Id - im * H(t) * dt
-
-        # iterate over deterministic collapse operators J
-        D = 0Id
-        for j in 1:Nj
-            M += -0.5J[j](t)' * J[j](t) * dt
-            if !pure
-                D += J[j](t) * ρ * J[j](t)' * dt
-            end
-        end
-
-        # initialize dy value, if simulation
-        if sim
-            for (i, c) in enumerate(C)
-                dys[i][n] += real(expect(c(t) + c(t)', ρ)) * dt #real(tr(c(t) * ρ + ρ * c(t)') * dt) #/sqrt(2) took out sqrt 8-1-23
-            end
-        end
-
-        # iterate over stochastic collapse operators C
-        # for c in 1:Nc
-        #     # println("length(dy) = ", length(dy))
-        #     M += C[c](t) * dys[c][n]
-        #     if !pure
-        #         D += -C[c](t)*ρ*C[c](t)'*dt # added this back in 8-1-23
-        #     end
-
-        #     # nested sum
-        #     for s in 1:Nc
-        #         M += 0.5C[c](t) * C[s](t) * (dys[c][n] * dys[s][n] - δ(c,s) * dt)
-        #     end
-        # end
-
-        for (i, (m, Γ, η)) in enumerate(C0)
-            M += C[i](t) * dys[i][n]
-            if !pure
-                D += -C[i](t) * ρ * C[i](t)' * dt
-            end
-
-        end
-
-        # update ρ according to Rouchon method
-        ρ = pure ? normalize(M*ρ) : normalize(M*ρ*M' + D)
-        push!(fnρs, fn(ρ))
+    for (t, dW) in zip(ts[2:end], dWs[2:end])
+        ρ = pure ? normalize(M(t, ρ, dW) * ρ) : normalize(M(t, ρ, dW) * ρ * M(t, ρ, dW)' + D(ρ)*dt)
+        push!(ρs, ρ)
     end
+    dy_list::Readouts = map(zip(ρs, dWs)) do (ρ, dW)
+                   dys(ρ, dW)
+               end
+    records::Records = dys_to_records(trans(dy_list)::Records, C, dt)
 
 	# revert to r (normalized) version of record
-    records = sim ? dys_to_records(dys, C0, dt) : records
+    # records = sim ? dys_to_records(dys, C0, dt) : records
     # for (i, (c, Γ, η)) in enumerate(C0)
     #     τm = 1/(2Γ*η)
     #     push!(records, dy[i] .* sqrt(τm) ./ dt)
     # end
 
-    return Solution(collect(ts), fnρs, records)
+    return Solution(collect(ts), ρs, records)
 end # rouchon
 
-function record_to_dy(record::Record, (c, Γ, η), dt)
-    τm = 1/(2Γ*η)
-    return record .* dt ./ sqrt(τm)
-end
-function dy_to_record(dy, (m, Γ, η), dt)::Record
-    τm = 1/(2Γ*η)
-    return dy .* sqrt(τm) ./ dt
-end
-function records_to_dys(records::Vector{Record}, C0, dt)
-    map(zip(records, C0)) do (record, ctup)
-        record_to_dy(record, ctup, dt)
-    end
-end
-function dys_to_records(dys, C0, dt)::Vector{Record}
-    map(zip(dys, C0)) do (dy, ctup)
-        dy_to_record(dy, ctup, dt)
-    end
-end
 
-    
-
-# old rouchon method
-"""
-function rouchon((t0, tf), ρ, H0, J0, Ctups; fn=ρ->ρ, dt=1e-4, r=[])
-    ts = range(t0, tf, step=dt)
-	ρ = (typeof(ρ) <: Ket) ? dm(ρ) : ρ # eventually, include ket simulation functionality for rouchon
-    Id = identityoperator(ρ.basis_l)
-    Nt = length(ts)
-    Nj = length(J0)
-    Nc = length(Ctups)
-
-    ρs = Any[]
-
-    H = length(methods(H0)) > 0 ? H0 : t -> H0
-    # J = map(j -> length(methods(j)) > 0 ? j : t -> j, J0)
-	J = []
-	for (j, Γ) in J0
-		push!(J, length(methods(j)) > 0 ? √Γ * j : (t -> √Γ * j) ) end
-	C = []
-	for (i, (c, τm, η)) in enumerate(Ctups)
-		m = c * sqrt(η / 2τm)
-		push!(C, length(methods(m)) > 0 ? m : (t -> m))
-		# push!(C, length(methods(c)) > 0 ? (c,τm,η) : (t -> c,τm,η))
-	end
-
-	# sample / prepare dy array
-	sim = (length(r) == 0)
-	dy = []
-	dW = []
-	dist = Normal(0, √dt)
-
-	for (i, (c, τm, η)) in enumerate(Ctups)
-		if sim # randomly sample noise time series for EACH stochastic collapse operator C
-			push!(dW, rand(dist, Nt))
-			push!(dy, zeros(Nt))
-		else
-			push!(dy, r[i] .* dt ./ sqrt(τm))	end
-	end
-
-
-    for (n, t) in enumerate(ts)
-        M = Id - im * H(t) * dt
-
-        # iterate over deterministic collapse operators J
-        D = 0Id
-        for j in 1:Nj
-            M += -0.5J[j](t)' * J[j](t) * dt
-            D += J[j](t) * ρ * J[j](t)' * dt
-        end
-
-        # initialize dy value, if simulation
-        if sim
-            for (i, (c, τm, η)) in enumerate(Ctups)
-                dy[i][n] = (real(tr(C[i](t) * ρ + ρ * C[i](t)') * dt) + dW[i][n])
-            end
-        end
-
-        # iterate over stochastic collapse operators C
-        for c in 1:Nc
-            M += C[c](t) * dy[c][n]
-            # D += -C[c](t)*ρ*C[c](t)'*dt
-
-            # nested sum
-            for s in 1:Nc
-                M += 0.5C[c](t) * C[s](t) * (dy[c][n] * dy[s][n] - δ(c,s) * dt)
-            end
-        end
-
-        # update ρ according to Rouchon method
-        ρ = M*ρ*M' + D
-        ρ = ρ / tr(ρ)
-        push!(ρs, fn(ρ))
-    end
-
-	# revert to r (normalized) version of record
-	if sim
-		for (i, (c, τm, η)) in enumerate(Ctups)
-			push!(r, dy[i] .* sqrt(τm) ./ dt)
-		end
-	end
-
-
-    return Solution(collect(ts), ρs, r)
-end # rouchon
-
-"""

@@ -7,17 +7,17 @@ using .QuantumCircuits.Tests
 # runtests(; functions = [test_ssbayesian, test_sbayesian], verbose=true, n = 10)
 runtests(;  
             functions=[ 
-                        # test_integration, 
-                        # test_single_timestep, 
-                        # test_lindblad, 
+                        test_integration, 
+                        test_single_timestep, 
+                        test_lindblad, 
                         test_timedelay,
                         test_readout,
-                        # test_bayesian,
-                        # test_ensemble,
-                        test_positivity_purity
+                        test_bayesian,
+                        test_positivity_purity,
+                        test_ensemble,
                         ],
             solvers = [
-                        # bayesian,
+                        bayesian,
                         rouchon
                         ],
             verbose=true, 

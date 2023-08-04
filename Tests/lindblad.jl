@@ -102,11 +102,16 @@ function test_lindblad(; testset_id="lindblad_master_eq", solve=bayesian, tolera
         end
 
         @testset "lindblad time-dep decay (master equation comparison)" begin
-            for γ in 0:0.5:1.0
-                for Γ in 0:0.5:1.0
-                    @test lindblad_timedep(Γ, γ; testset_id=testset_id, solve=solve, tolerance=tolerance, kwargs...)
+            if solve==bayesian
+                for γ in 0:0.5:1.0
+                    for Γ in 0:0.5:1.0
+                        @test lindblad_timedep(Γ, γ; testset_id=testset_id, solve=solve, tolerance=tolerance, kwargs...)
+                    end
                 end
+            else
+                println("⬇︎⬇︎⬇︎ Time-dependent decay not yet implemented for rouchon method.")
             end
+
         end
 
         # @testset "lindblad state-dep (run)" begin

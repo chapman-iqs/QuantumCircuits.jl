@@ -41,10 +41,9 @@ end
 function test_ensemble(; solve=bayesian, testset_id="ensemble", kwargs...)
 
      @testset "ensemble average" begin
-        # @test ensemble_avg(2π, 0.5, 1.0; solve=solve, testset_id=testset_id, kwargs...)
-        @test ensemble_avg(2π, 0.5, 0.9; solve=solve, testset_id=testset_id, kwargs...)
-        @test ensemble_avg(2π, 0.5, 0.5; solve=solve, testset_id=testset_id, kwargs...)
-        @test ensemble_avg(2π, 0.5, 0.1; solve=solve, testset_id=testset_id, kwargs...)
+        for η in [1.0, 0.9, 0.5, 0.1]
+            @test ensemble_avg(2π, 0.5, η; solve=solve, testset_id=testset_id, kwargs...)
+        end
     end
 end
 
